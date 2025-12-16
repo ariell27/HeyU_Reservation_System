@@ -26,7 +26,7 @@
   border: 1px solid var(--color-primary);
 }
 
-.primary:hover {
+.primary:not(:disabled):hover {
   background-color: var(--color-primary);
   color: var(--color-background);
   opacity: 1;
@@ -38,7 +38,7 @@
   border: 1px solid var(--color-primary);
 }
 
-.secondary:hover {
+.secondary:not(:disabled):hover {
   background-color: var(--color-primary);
   color: var(--color-background);
   opacity: 1;
