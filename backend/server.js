@@ -3,6 +3,7 @@ import cors from 'cors';
 import bookingsRouter from './routes/bookings.js';
 import servicesRouter from './routes/services.js';
 import blockedDatesRouter from './routes/blockedDates.js';
+import timeSlotsRouter from './routes/timeSlots.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -21,6 +22,7 @@ app.get('/health', (req, res) => {
 app.use('/api/bookings', bookingsRouter);
 app.use('/api/services', servicesRouter);
 app.use('/api/blocked-dates', blockedDatesRouter);
+app.use('/api/time-slots', timeSlotsRouter);
 
 // 404 处理
 app.use((req, res) => {
