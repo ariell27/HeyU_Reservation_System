@@ -3,6 +3,7 @@ import { useLocation, useNavigate, Link } from "react-router-dom";
 import Header from "../components/Header";
 import Button from "../components/Button";
 import Calendar from "../components/Calendar";
+import { getBookings } from "../utils/api";
 import styles from "./TimeSelectionPage.module.css";
 
 // 从服务时长字符串中提取小时数
@@ -39,16 +40,23 @@ const isEveningTime = (time, date) => {
 // 检查时间槽是否与已预订冲突
 const isTimeSlotBooked = (time, bookings, serviceDuration) => {
   if (!bookings || bookings.length === 0) return false;
-  
+
   const [timeHours] = time.split(":").map(Number);
   const timeEnd = timeHours + serviceDuration;
-  
+
   return bookings.some((booking) => {
-    const bookingTime = booking.time || booking.startTime;
+    // 从后端返回的预订数据中获取时间：selectedTime 或 time 或 startTime
+    const bookingTime =
+      booking.selectedTime || booking.time || booking.startTime;
+    if (!bookingTime) return false;
+
     const [bookingStartHours] = bookingTime.split(":").map(Number);
-    const bookingDuration = booking.serviceDuration || parseDuration(booking.duration);
+    // 从服务对象中获取时长，如果没有则使用默认值
+    const bookingDuration = booking.service?.duration
+      ? parseDuration(booking.service.duration)
+      : booking.serviceDuration || parseDuration(booking.duration) || 3;
     const bookingEnd = bookingStartHours + bookingDuration;
-    
+
     // 冲突条件：时间槽开始时间 < 预订结束时间 且 时间槽开始时间 + 服务时长 > 预订开始时间
     return timeHours < bookingEnd && timeEnd > bookingStartHours;
   });
@@ -57,25 +65,24 @@ const isTimeSlotBooked = (time, bookings, serviceDuration) => {
 // 获取指定日期的预订数据
 const fetchBookingsForDate = async (date) => {
   if (!date) return [];
-  
+
   try {
-    // TODO: 替换为实际的API端点
-    const dateStr = date.toISOString().split('T')[0];
-    const response = await fetch(`/api/bookings?date=${dateStr}`);
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch bookings');
-    }
-    
-    const data = await response.json();
-    // 确保返回的数据包含 time 和 serviceDuration 字段
-    return data.map((booking) => ({
+    const dateStr = date.toISOString().split("T")[0];
+    // 使用 api.js 中的 getBookings 函数
+    const bookings = await getBookings({ date: dateStr });
+
+    // 确保返回的数据格式正确，映射字段以便后续使用
+    return bookings.map((booking) => ({
       ...booking,
-      time: booking.time || booking.startTime,
-      serviceDuration: booking.serviceDuration || parseDuration(booking.duration),
+      // 统一时间字段：使用 selectedTime（后端返回的字段）
+      time: booking.selectedTime || booking.time || booking.startTime,
+      // 从服务对象中提取时长
+      serviceDuration: booking.service?.duration
+        ? parseDuration(booking.service.duration)
+        : booking.serviceDuration || parseDuration(booking.duration) || 3,
     }));
   } catch (error) {
-    console.error('Error fetching bookings:', error);
+    console.error("Error fetching bookings:", error);
     return []; // 出错时返回空数组
   }
 };
@@ -84,15 +91,15 @@ const fetchBookingsForDate = async (date) => {
 const generateTimeSlots = (date, service, bookings = []) => {
   const slotsSet = new Set(); // 使用Set去重
   const endHour = getEndHour(date); // 根据日期获取结束时间
-  
+
   if (!service) {
     // 如果没有选择服务，返回空数组
     return [];
   }
-  
+
   const serviceDuration = parseDuration(service.duration);
   const defaultSlots = ["09:00", "12:00", "15:00"];
-  
+
   // 1. 如果没有预订，返回默认时间槽
   if (!bookings || bookings.length === 0) {
     defaultSlots.forEach((time) => {
@@ -100,7 +107,7 @@ const generateTimeSlots = (date, service, bookings = []) => {
         slotsSet.add(time);
       }
     });
-    
+
     // 周二/周四添加18:00（如果服务是3小时）
     if (date) {
       const dayOfWeek = date.getDay();
@@ -110,11 +117,11 @@ const generateTimeSlots = (date, service, bookings = []) => {
         }
       }
     }
-    
+
     const slots = Array.from(slotsSet).sort();
     return slots;
   }
-  
+
   // 2. 如果有预订，动态计算可用时间槽
   // 2.1 添加默认时间槽（如果有效且不与预订冲突）
   defaultSlots.forEach((time) => {
@@ -125,7 +132,7 @@ const generateTimeSlots = (date, service, bookings = []) => {
       slotsSet.add(time);
     }
   });
-  
+
   // 2.2 周二/周四添加18:00（如果服务是3小时且不与预订冲突）
   if (date) {
     const dayOfWeek = date.getDay();
@@ -139,14 +146,21 @@ const generateTimeSlots = (date, service, bookings = []) => {
       }
     }
   }
-  
+
   // 2.3 对于每个预订，计算上一个和下一个可用时间
   bookings.forEach((booking) => {
-    const bookingTime = booking.time || booking.startTime;
+    // 从后端返回的预订数据中获取时间：selectedTime 或 time 或 startTime
+    const bookingTime =
+      booking.selectedTime || booking.time || booking.startTime;
+    if (!bookingTime) return; // 如果没有时间，跳过这个预订
+
     const [bookingStartHours] = bookingTime.split(":").map(Number);
-    const bookingDuration = booking.serviceDuration || parseDuration(booking.duration);
+    // 从服务对象中获取时长，如果没有则使用默认值
+    const bookingDuration = booking.service?.duration
+      ? parseDuration(booking.service.duration)
+      : booking.serviceDuration || parseDuration(booking.duration) || 3;
     const bookingEnd = bookingStartHours + bookingDuration;
-    
+
     // 计算上一个可用时间：从默认时间槽中找到满足条件的
     defaultSlots.forEach((defaultTime) => {
       const [defaultHours] = defaultTime.split(":").map(Number);
@@ -160,7 +174,7 @@ const generateTimeSlots = (date, service, bookings = []) => {
         }
       }
     });
-    
+
     // 计算下一个可用时间：预订结束时间
     const nextAvailableTime = `${bookingEnd.toString().padStart(2, "0")}:00`;
     if (
@@ -172,7 +186,7 @@ const generateTimeSlots = (date, service, bookings = []) => {
         slotsSet.add(nextAvailableTime);
       }
     }
-    
+
     // 也检查默认时间槽中是否有在预订结束后的
     defaultSlots.forEach((defaultTime) => {
       const [defaultHours] = defaultTime.split(":").map(Number);
@@ -187,23 +201,23 @@ const generateTimeSlots = (date, service, bookings = []) => {
       }
     });
   });
-  
+
   // 2.4 过滤冲突：移除与预订冲突的时间槽
   const finalSlots = Array.from(slotsSet).filter((time) => {
     // 检查是否与预订冲突
     if (isTimeSlotBooked(time, bookings, serviceDuration)) {
       return false;
     }
-    
+
     // 检查是否为周二/周四晚上（18:00之后），如果是且服务是5小时，则不显示
     if (isEveningTime(time, date) && serviceDuration === 5) {
       return false;
     }
-    
+
     // 检查是否有足够的时长
     return isTimeSlotValid(time, serviceDuration, endHour);
   });
-  
+
   // 转换为数组并排序
   return finalSlots.sort();
 };
@@ -211,18 +225,14 @@ const generateTimeSlots = (date, service, bookings = []) => {
 function TimeSelectionPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [selectedService, setSelectedService] = useState(null);
+  const [selectedService] = useState(() => location.state?.service || null);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedTime, setSelectedTime] = useState(null);
   const [bookings, setBookings] = useState([]);
-  const [loadingBookings, setLoadingBookings] = useState(false);
 
   useEffect(() => {
-    // 从location state获取选中的服务
-    if (location.state?.service) {
-      setSelectedService(location.state.service);
-    } else {
-      // 如果没有服务信息，返回预约页面
+    // 如果没有服务信息，返回预约页面
+    if (!location.state?.service) {
       navigate("/booking");
     }
   }, [location, navigate]);
@@ -230,16 +240,13 @@ function TimeSelectionPage() {
   // 当日期变化时，获取该日期的预订数据
   useEffect(() => {
     if (selectedDate) {
-      setLoadingBookings(true);
       fetchBookingsForDate(selectedDate)
         .then((data) => {
           setBookings(data);
-          setLoadingBookings(false);
         })
         .catch((error) => {
-          console.error('Error loading bookings:', error);
+          console.error("Error loading bookings:", error);
           setBookings([]);
-          setLoadingBookings(false);
         });
     }
   }, [selectedDate]);
@@ -260,22 +267,22 @@ function TimeSelectionPage() {
     if (!selectedService) return false;
     const serviceDuration = parseDuration(selectedService.duration);
     const endHour = getEndHour(selectedDate); // 根据日期获取营业结束时间
-    
+
     // 检查是否有足够的时长
     if (!isTimeSlotValid(time, serviceDuration, endHour)) {
       return false;
     }
-    
+
     // 检查是否为周二/周四晚上（18:00之后），如果是且服务是5小时，则不允许
     if (isEveningTime(time, selectedDate) && serviceDuration === 5) {
       return false;
     }
-    
+
     // 检查是否与已预订冲突
     if (isTimeSlotBooked(time, bookings, serviceDuration)) {
       return false;
     }
-    
+
     return true;
   };
 
