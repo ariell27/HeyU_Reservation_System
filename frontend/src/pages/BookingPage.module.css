@@ -145,6 +145,25 @@
   margin-top: var(--spacing-sm);
 }
 
+.loadingMessage {
+  text-align: center;
+  padding: var(--spacing-xl);
+  font-size: 1.1rem;
+  color: var(--color-text);
+}
+
+.errorMessage {
+  text-align: center;
+  padding: var(--spacing-xl);
+  font-size: 1.1rem;
+  color: #d32f2f;
+  background-color: rgba(211, 47, 47, 0.1);
+  border: 1px solid rgba(211, 47, 47, 0.3);
+  border-radius: var(--radius-md);
+  margin: var(--spacing-lg) auto;
+  max-width: 600px;
+}
+
 @media (max-width: 768px) {
   .container {
     padding: var(--spacing-md) var(--spacing-sm);
