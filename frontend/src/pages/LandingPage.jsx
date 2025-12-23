@@ -11,9 +11,9 @@ function LandingPage() {
         <div className={styles.heroContent}>
           <h1 className={styles.heroTitle}>HeyU·禾屿</h1>
           <p className={styles.address}>
-            U1909 / 46 Walker St, Rhodes, NSW, 2138
+            U1602/ 63 Shoreline Drive, Rhodes, NSW, 2138
             <br />
-            Phone: 0422 422 422 | WeChat: HeyUbeauty27
+            Phone: 048 9196 388 | WeChat: HeyUbeauty27
           </p>
           <p className={styles.heroSubtitle}>
             Elevate your beauty with precision and style
