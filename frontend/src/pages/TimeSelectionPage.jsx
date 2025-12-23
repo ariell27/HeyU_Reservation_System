@@ -12,6 +12,7 @@ import {
   isTimeSlotBooked,
   isTimeSlotBlocked,
   generateAvailableTimeSlots,
+  formatDateToLocalString,
 } from "../utils/timeSlotUtils";
 import styles from "./TimeSelectionPage.module.css";
 
@@ -20,7 +21,8 @@ const fetchBookingsForDate = async (date) => {
   if (!date) return [];
 
   try {
-    const dateStr = date.toISOString().split("T")[0];
+    // 使用本地日期字符串，避免时区问题
+    const dateStr = formatDateToLocalString(date);
     // 使用 api.js 中的 getBookings 函数
     const bookings = await getBookings({ date: dateStr });
 
@@ -58,14 +60,21 @@ function TimeSelectionPage() {
 
   // 获取所有被屏蔽的日期
   useEffect(() => {
-    getBlockedDates()
-      .then((data) => {
+    const fetchBlockedDates = async () => {
+      try {
+        const data = await getBlockedDates();
         setBlockedDates(data);
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error("Error loading blocked dates:", error);
         setBlockedDates([]);
-      });
+      }
+    };
+    
+    fetchBlockedDates();
+    // 定期刷新 blocked dates 以确保数据同步（当管理员修改时）
+    const interval = setInterval(fetchBlockedDates, 3000); // 每3秒刷新一次
+    
+    return () => clearInterval(interval);
   }, []);
 
   // 当日期变化时，获取该日期的预订数据

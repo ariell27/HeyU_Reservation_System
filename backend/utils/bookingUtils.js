@@ -67,6 +67,16 @@ export function validateBookingData(bookingData) {
 
   if (!bookingData.selectedDate) {
     errors.push('日期是必填的');
+  } else {
+    // 验证日期格式：应该是 YYYY-MM-DD 格式
+    const dateStr = bookingData.selectedDate instanceof Date
+      ? bookingData.selectedDate.toISOString().split('T')[0]
+      : bookingData.selectedDate.split('T')[0]; // 如果是 ISO 字符串，提取日期部分
+    
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(dateStr)) {
+      errors.push('日期格式无效，应为 YYYY-MM-DD');
+    }
   }
 
   if (!bookingData.selectedTime) {

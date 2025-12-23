@@ -27,15 +27,27 @@ router.post('/', (req, res) => {
     const bookings = readBookings();
 
     // 创建新预订对象
-    // 确保日期格式为 ISO 字符串
-    const selectedDateISO = bookingData.selectedDate instanceof Date 
-      ? bookingData.selectedDate.toISOString()
-      : bookingData.selectedDate;
+    // 确保日期格式为本地日期字符串（YYYY-MM-DD），避免时区问题
+    let selectedDateStr = bookingData.selectedDate;
+    
+    // 如果是 Date 对象，转换为本地日期字符串
+    if (selectedDateStr instanceof Date) {
+      const year = selectedDateStr.getFullYear();
+      const month = String(selectedDateStr.getMonth() + 1).padStart(2, '0');
+      const day = String(selectedDateStr.getDate()).padStart(2, '0');
+      selectedDateStr = `${year}-${month}-${day}`;
+    }
+    // 如果是 ISO 字符串，提取日期部分
+    else if (typeof selectedDateStr === 'string' && selectedDateStr.includes('T')) {
+      selectedDateStr = selectedDateStr.split('T')[0];
+    }
+    // 如果已经是 YYYY-MM-DD 格式，直接使用
+    // 否则保持原样（让验证函数处理）
 
     const newBooking = {
       bookingId: generateBookingId(),
       service: bookingData.service,
-      selectedDate: selectedDateISO,
+      selectedDate: selectedDateStr, // 存储为本地日期字符串
       selectedTime: bookingData.selectedTime,
       name: bookingData.name.trim(),
       wechatName: bookingData.wechatName.trim(),
@@ -82,8 +94,11 @@ router.get('/', (req, res) => {
     // 按日期筛选
     if (date) {
       bookings = bookings.filter(booking => {
-        const bookingDate = new Date(booking.selectedDate).toISOString().split('T')[0];
-        return bookingDate === date;
+        // 如果 storedDate 是 ISO 字符串，提取日期部分；如果是 YYYY-MM-DD，直接使用
+        const bookingDateStr = booking.selectedDate.includes('T')
+          ? booking.selectedDate.split('T')[0]
+          : booking.selectedDate;
+        return bookingDateStr === date;
       });
     }
 

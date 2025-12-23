@@ -4,6 +4,7 @@ import Header from "../components/Header";
 import Button from "../components/Button";
 import { sendConfirmationEmail } from "../utils/emailService";
 import { createBooking } from "../utils/api";
+import { formatDateToLocalString } from "../utils/timeSlotUtils";
 import styles from "./CustomerInfoPage.module.css";
 
 function CustomerInfoPage() {
@@ -78,9 +79,15 @@ function CustomerInfoPage() {
 
       try {
         // 准备完整的预约数据
+        // 将 Date 对象转换为本地日期字符串（YYYY-MM-DD），避免时区问题
+        const dateStr =
+          bookingData.selectedDate instanceof Date
+            ? formatDateToLocalString(bookingData.selectedDate)
+            : bookingData.selectedDate;
+
         const completeBookingData = {
           service: bookingData.service,
-          selectedDate: bookingData.selectedDate,
+          selectedDate: dateStr, // 使用本地日期字符串
           selectedTime: bookingData.selectedTime,
           name: name,
           wechatName: wechatName,
