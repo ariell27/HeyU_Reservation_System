@@ -10,7 +10,7 @@ import {
   deleteBlockedDate,
   deleteBlockedTime,
 } from "../utils/api";
-import { generateDefaultTimeSlots } from "../utils/timeSlotUtils";
+import { generateAllTimeSlots } from "../utils/timeSlotUtils";
 import styles from "./AdminPage.module.css";
 
 function AdminPage() {
@@ -502,7 +502,7 @@ function AdminPage() {
                 </div>
 
                 <div className={styles.timeSlotsGrid}>
-                  {generateDefaultTimeSlots(selectedBlockDate).map((time) => {
+                  {generateAllTimeSlots(selectedBlockDate).map((time) => {
                     const dateStr = formatDateToLocalString(selectedBlockDate);
                     const blockedTimes = getBlockedTimesForDate(dateStr);
                     // 确保时间格式一致：使用 "HH:MM" 格式进行比较

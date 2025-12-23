@@ -95,20 +95,29 @@ export const isTimeSlotBlocked = (time, date, blockedDates) => {
 
 /**
  * 生成默认时间槽（用于预约界面和管理界面）
- * 默认时间槽：["09:00", "12:00", "15:00"]
- * 周二/周四还会包含 "18:00"
+ * 根据服务时长显示不同的默认时间槽：
+ * - 5小时服务：["09:00", "14:00"]
+ * - 3小时服务：["09:00", "12:00", "15:00"]，周二/周四还会包含 "18:00"
  * @param {Date} date - 日期（可选，用于确定是否包含18:00）
+ * @param {number} serviceDuration - 服务时长（小时）
  * @returns {Array<string>} 默认时间槽数组
  */
-export const generateDefaultTimeSlots = (date = null) => {
-  const defaultSlots = ["09:00", "12:00", "15:00"];
-
-  // 如果是周二或周四，添加18:00
-  if (date) {
-    const dayOfWeek = date.getDay();
-    if (dayOfWeek === 2 || dayOfWeek === 4) {
-      // 周二或周四
-      defaultSlots.push("18:00");
+export const generateDefaultTimeSlots = (date = null, serviceDuration = 3) => {
+  let defaultSlots;
+  
+  if (serviceDuration === 5) {
+    // 5小时服务：显示 9:00 和 14:00
+    defaultSlots = ["09:00", "14:00"];
+  } else {
+    // 3小时服务：显示 9:00、12:00、15:00
+    defaultSlots = ["09:00", "12:00", "15:00"];
+    
+    // 如果是周二或周四，且服务是3小时，添加18:00
+    if (date) {
+      const dayOfWeek = date.getDay();
+      if (dayOfWeek === 2 || dayOfWeek === 4) {
+        defaultSlots.push("18:00");
+      }
     }
   }
 
@@ -172,7 +181,8 @@ export const generateAvailableTimeSlots = (
   }
 
   const serviceDuration = parseDuration(service.duration);
-  const defaultSlots = ["09:00", "12:00", "15:00"];
+  // 根据服务时长生成默认时间槽
+  const defaultSlots = generateDefaultTimeSlots(date, serviceDuration);
 
   // 1. 如果没有预订，返回默认时间槽
   if (!bookings || bookings.length === 0) {
@@ -184,19 +194,6 @@ export const generateAvailableTimeSlots = (
         slotsSet.add(time);
       }
     });
-
-    // 周二/周四添加18:00（如果服务是3小时）
-    if (date) {
-      const dayOfWeek = date.getDay();
-      if ((dayOfWeek === 2 || dayOfWeek === 4) && serviceDuration === 3) {
-        if (
-          isTimeSlotValid("18:00", serviceDuration, endHour) &&
-          !isTimeSlotBlocked("18:00", date, blockedDates)
-        ) {
-          slotsSet.add("18:00");
-        }
-      }
-    }
 
     const slots = Array.from(slotsSet).sort();
     return slots;
@@ -214,20 +211,8 @@ export const generateAvailableTimeSlots = (
     }
   });
 
-  // 2.2 周二/周四添加18:00（如果服务是3小时且不与预订冲突且不被 block）
-  if (date) {
-    const dayOfWeek = date.getDay();
-    if (dayOfWeek === 2 || dayOfWeek === 4) {
-      if (
-        serviceDuration === 3 &&
-        isTimeSlotValid("18:00", serviceDuration, endHour) &&
-        !isTimeSlotBooked("18:00", bookings, serviceDuration) &&
-        !isTimeSlotBlocked("18:00", date, blockedDates)
-      ) {
-        slotsSet.add("18:00");
-      }
-    }
-  }
+  // 2.2 如果默认时间槽中已经包含18:00（3小时服务在周二/周四），则不需要单独添加
+  // 因为 generateDefaultTimeSlots 已经处理了18:00的添加逻辑
 
   // 2.3 对于每个预订，计算上一个和下一个可用时间
   bookings.forEach((booking) => {
@@ -270,24 +255,10 @@ export const generateAvailableTimeSlots = (
         slotsSet.add(nextAvailableTime);
       }
     }
-
-    // 也检查默认时间槽中是否有在预订结束后的
-    defaultSlots.forEach((defaultTime) => {
-      const [defaultHours] = defaultTime.split(":").map(Number);
-      // 下一个可用时间条件：defaultTime >= bookingEnd
-      if (defaultHours >= bookingEnd) {
-        if (
-          isTimeSlotValid(defaultTime, serviceDuration, endHour) &&
-          !isTimeSlotBooked(defaultTime, bookings, serviceDuration) &&
-          !isTimeSlotBlocked(defaultTime, date, blockedDates)
-        ) {
-          slotsSet.add(defaultTime);
-        }
-      }
-    });
   });
 
   // 2.4 过滤冲突：移除与预订冲突或被 block 的时间槽
+  // 同时检查时间间隔：如果时间槽与最近的预订结束时间的间隔小于服务时长，则不显示
   const finalSlots = Array.from(slotsSet).filter((time) => {
     // 检查是否被 block
     if (isTimeSlotBlocked(time, date, blockedDates)) {
@@ -305,7 +276,56 @@ export const generateAvailableTimeSlots = (
     }
 
     // 检查是否有足够的时长
-    return isTimeSlotValid(time, serviceDuration, endHour);
+    if (!isTimeSlotValid(time, serviceDuration, endHour)) {
+      return false;
+    }
+
+    const [timeHours] = time.split(":").map(Number);
+
+    // 检查18点之前开始的场次必须在19:00及之前结束
+    // 如果时间槽在18:00之前开始，那么它必须在19:00之前结束
+    if (timeHours < 18) {
+      if (timeHours + serviceDuration > 19) {
+        return false; // 18点之前开始的场次不能在19:00之后结束
+      }
+    }
+
+    // 检查时间间隔：如果时间槽与最近的预订结束时间的间隔小于服务时长，则不显示
+    
+    // 找到所有预订的结束时间
+    const bookingEndTimes = [];
+    bookings.forEach((booking) => {
+      const bookingTime =
+        booking.selectedTime || booking.time || booking.startTime;
+      if (!bookingTime) return;
+      const [bookingStartHours] = bookingTime.split(":").map(Number);
+      const bookingDuration = booking.service?.duration
+        ? parseDuration(booking.service.duration)
+        : booking.serviceDuration || parseDuration(booking.duration) || 3;
+      const bookingEnd = bookingStartHours + bookingDuration;
+      bookingEndTimes.push(bookingEnd);
+    });
+
+    // 如果时间槽在某个预订结束时间之后，检查间隔
+    // 但18:00是周二/周四的特殊时间槽，不受间隔限制
+    const is18Slot = timeHours === 18;
+    const isTuesdayOrThursday = date && (date.getDay() === 2 || date.getDay() === 4);
+    
+    if (!(is18Slot && isTuesdayOrThursday)) {
+      // 对于非18:00时间槽，或者非周二/周四，检查间隔
+      for (const bookingEnd of bookingEndTimes) {
+        if (timeHours > bookingEnd) {
+          // 计算间隔（小时）
+          const interval = timeHours - bookingEnd;
+          // 如果间隔小于服务时长，则不显示（除非时间槽就是预订结束时间本身）
+          if (interval < serviceDuration) {
+            return false;
+          }
+        }
+      }
+    }
+
+    return true;
   });
 
   // 转换为数组并排序

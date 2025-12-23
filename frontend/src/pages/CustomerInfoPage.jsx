@@ -304,7 +304,13 @@ function CustomerInfoPage() {
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={() => navigate(-1)}
+                  onClick={() =>
+                    navigate("/booking/time", {
+                      state: {
+                        service: bookingData.service,
+                      },
+                    })
+                  }
                   disabled={isSubmitting}
                 >
                   返回 | Back
