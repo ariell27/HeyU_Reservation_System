@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "../components/Header";
 import Calendar from "../components/Calendar";
-import { services as initialServices } from "../data/services";
+import { getServices, saveService, getBookings } from "../utils/api";
 import styles from "./AdminPage.module.css";
 
 // 生成可用时间槽
@@ -23,7 +23,7 @@ const generateTimeSlots = (date) => {
 };
 
 function AdminPage() {
-  const [services, setServices] = useState(initialServices);
+  const [services, setServices] = useState([]);
   const [editingService, setEditingService] = useState(null);
   // blockedDates 现在存储 { date: "2024-12-20", times: ["10:00", "14:30"] } 格式
   // 如果 times 为空数组，表示整个日期被屏蔽
@@ -32,57 +32,88 @@ function AdminPage() {
   const [activeTab, setActiveTab] = useState("bookings"); // services, dates, bookings
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedBlockDate, setSelectedBlockDate] = useState(null);
-  const [bookings, setBookings] = useState([
-    // 示例预约数据
-    {
-      id: 1,
-      customerName: "张小姐",
-      phone: "0412345678",
-      email: "zhang@example.com",
-      service: {
-        nameCn: "纯色/跳色",
-        nameEn: "Solid Color/Accent Color",
-        price: "$55",
-      },
-      date: new Date("2025-12-20"),
-      time: "14:00",
-      status: "confirmed", // confirmed, pending, cancelled
-      createdAt: new Date("2025-12-15"),
-    },
-    {
-      id: 2,
-      customerName: "李女士",
-      phone: "0423456789",
-      email: "li@example.com",
-      service: {
-        nameCn: "猫眼",
-        nameEn: "Cat Eye",
-        price: "$60",
-      },
-      date: new Date("2025-12-21"),
-      time: "15:30",
-      status: "pending",
-      createdAt: new Date("2025-12-16"),
-    },
-  ]);
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // 从后端加载服务数据
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        const servicesData = await getServices();
+        setServices(servicesData);
+      } catch (err) {
+        console.error("获取服务失败:", err);
+        setError("无法加载服务列表 | Unable to load services");
+      }
+    };
+    fetchServices();
+  }, []);
+
+  // 从后端加载预订数据
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        setLoading(true);
+        const bookingsData = await getBookings();
+        // 转换后端数据格式为前端使用的格式
+        const formattedBookings = bookingsData.map((booking, index) => {
+          // 从 bookingId 中提取数字部分作为显示 ID
+          // bookingId 格式: BK{timestamp}{random}，提取所有数字并取后6-8位作为简短ID
+          const allNumbers = booking.bookingId.replace(/\D/g, '');
+          // 使用时间戳的后6位，如果不够则使用所有数字的后6位
+          const numericId = allNumbers.length > 6 
+            ? allNumbers.slice(-6) 
+            : allNumbers || (index + 1).toString();
+          return {
+            id: booking.bookingId, // 保留完整 ID 用于 key
+            displayId: numericId, // 用于显示的简化数字 ID
+            customerName: booking.name,
+            phone: booking.phone,
+            email: booking.email,
+            service: booking.service,
+            date: new Date(booking.selectedDate),
+            time: booking.selectedTime,
+            status: booking.status,
+            createdAt: new Date(booking.createdAt),
+          };
+        });
+        setBookings(formattedBookings);
+      } catch (err) {
+        console.error("获取预订失败:", err);
+        setError("无法加载预订列表 | Unable to load bookings");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchBookings();
+  }, []);
 
   const handleEditService = (service) => {
     setEditingService({ ...service });
   };
 
-  const handleSaveService = () => {
-    if (editingService.id) {
-      // 更新现有服务
-      setServices(
-        services.map((s) => (s.id === editingService.id ? editingService : s))
-      );
-    } else {
-      // 添加新服务
-      const newId = Math.max(...services.map((s) => s.id)) + 1;
-      setServices([...services, { ...editingService, id: newId }]);
-      setShowAddService(false);
+  const handleSaveService = async () => {
+    try {
+      // 保存到后端
+      const savedService = await saveService(editingService);
+      
+      // 更新本地状态
+      if (editingService.id) {
+        // 更新现有服务
+        setServices(
+          services.map((s) => (s.id === savedService.id ? savedService : s))
+        );
+      } else {
+        // 添加新服务
+        setServices([...services, savedService]);
+        setShowAddService(false);
+      }
+      setEditingService(null);
+    } catch (err) {
+      console.error("保存服务失败:", err);
+      alert("保存服务失败，请稍后重试。| Failed to save service, please try again.");
     }
-    setEditingService(null);
   };
 
   const handleDeleteService = (id) => {
@@ -509,7 +540,7 @@ function AdminPage() {
                     {getBookingsForDate(selectedDate).map((booking) => (
                       <div key={booking.id} className={styles.bookingCard}>
                         <div className={styles.bookingHeader}>
-                          <div className={styles.bookingId}># {booking.id}</div>
+                          <div className={styles.bookingId}># {booking.displayId || booking.id}</div>
                           {/* <span
                             className={`${styles.statusBadge} ${
                               styles[booking.status]

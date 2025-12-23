@@ -1,10 +1,33 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
-import { services } from "../data/services";
+import { getServices } from "../utils/api";
 import styles from "./BookingPage.module.css";
 
 function BookingPage() {
   const navigate = useNavigate();
+  const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    // 从后端 API 获取服务数据
+    const fetchServices = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const servicesData = await getServices();
+        setServices(servicesData);
+      } catch (err) {
+        console.error("获取服务失败:", err);
+        setError("无法加载服务列表，请稍后重试。| Unable to load services, please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchServices();
+  }, []);
 
   const handleServiceSelect = (service) => {
     navigate("/booking/time", { state: { service } });
@@ -22,6 +45,30 @@ function BookingPage() {
     延长: { cn: "延长", en: "Extension" },
     卸甲: { cn: "卸甲", en: "Removal" },
   };
+
+  if (loading) {
+    return (
+      <div className={styles.bookingPage}>
+        <Header />
+        <div className={styles.container}>
+          <div className={styles.loadingMessage}>
+            加载中... | Loading...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={styles.bookingPage}>
+        <Header />
+        <div className={styles.container}>
+          <div className={styles.errorMessage}>{error}</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.bookingPage}>

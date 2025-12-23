@@ -3,6 +3,7 @@ import { useLocation, useNavigate, Link } from "react-router-dom";
 import Header from "../components/Header";
 import Button from "../components/Button";
 import { sendConfirmationEmail } from "../utils/emailService";
+import { createBooking } from "../utils/api";
 import styles from "./CustomerInfoPage.module.css";
 
 function CustomerInfoPage() {
@@ -10,6 +11,7 @@ function CustomerInfoPage() {
   const navigate = useNavigate();
   const [bookingData, setBookingData] = useState(null);
   const [name, setName] = useState("");
+  const [wechatName, setWechatName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [wechat, setWechat] = useState("");
@@ -50,6 +52,11 @@ function CustomerInfoPage() {
       newErrors.name = "请输入姓名 | Please enter your name";
     }
 
+    if (!wechatName.trim()) {
+      newErrors.wechatName =
+        "请输入微信名（如没有可填写N/A）| Please enter your WeChat name (or N/A if you don't have one)";
+    }
+
     if (!phone.trim()) {
       newErrors.phone = "请输入电话号码 | Please enter your phone number";
     } else if (!validatePhone(phone)) {
@@ -76,24 +83,32 @@ function CustomerInfoPage() {
           selectedDate: bookingData.selectedDate,
           selectedTime: bookingData.selectedTime,
           name: name,
+          wechatName: wechatName,
           email: email,
           phone: phone,
           wechat: wechat,
         };
 
+        // 保存预订到后端
+        const savedBooking = await createBooking(completeBookingData);
+        console.log("预订已保存:", savedBooking);
+
         // 发送确认邮件
         await sendConfirmationEmail(completeBookingData);
 
-        // 导航到成功页面，传递预约数据
+        // 导航到成功页面，传递预约数据（包含后端返回的 bookingId）
         navigate("/booking/success", {
           state: {
-            bookingData: completeBookingData,
+            bookingData: {
+              ...completeBookingData,
+              bookingId: savedBooking.bookingId,
+            },
           },
         });
       } catch (error) {
         console.error("提交失败:", error);
         alert(
-          "提交失败，请稍后重试。 | Submission failed, please try again later."
+          `提交失败，请稍后重试。 | Submission failed, please try again later.\n${error.message}`
         );
         setIsSubmitting(false);
       }
@@ -163,7 +178,7 @@ function CustomerInfoPage() {
             <form onSubmit={handleSubmit} className={styles.form}>
               <div className={styles.formGroup}>
                 <label htmlFor="name" className={styles.label}>
-                  姓名 | Name <span className={styles.required}>*</span>
+                  姓名 | Nickname <span className={styles.required}>*</span>
                 </label>
                 <input
                   type="text"
@@ -171,7 +186,7 @@ function CustomerInfoPage() {
                   className={`${styles.input} ${
                     errors.name ? styles.inputError : ""
                   }`}
-                  placeholder="请输入您的姓名 | Please enter your name"
+                  placeholder="Please enter your nickname"
                   value={name}
                   onChange={(e) => {
                     setName(e.target.value);
@@ -186,6 +201,33 @@ function CustomerInfoPage() {
               </div>
 
               <div className={styles.formGroup}>
+                <label htmlFor="wechatName" className={styles.label}>
+                  微信名 | WeChat Name{" "}
+                  <span className={styles.required}>*</span>
+                </label>
+                <input
+                  type="text"
+                  id="wechatName"
+                  className={`${styles.input} ${
+                    errors.wechatName ? styles.inputError : ""
+                  }`}
+                  placeholder="Please enter your WeChat name (or N/A)"
+                  value={wechatName}
+                  onChange={(e) => {
+                    setWechatName(e.target.value);
+                    if (errors.wechatName) {
+                      setErrors({ ...errors, wechatName: "" });
+                    }
+                  }}
+                />
+                {errors.wechatName && (
+                  <span className={styles.errorMessage}>
+                    {errors.wechatName}
+                  </span>
+                )}
+              </div>
+
+              <div className={styles.formGroup}>
                 <label htmlFor="phone" className={styles.label}>
                   电话号码 | Phone Number{" "}
                   <span className={styles.required}>*</span>
@@ -196,7 +238,7 @@ function CustomerInfoPage() {
                   className={`${styles.input} ${
                     errors.phone ? styles.inputError : ""
                   }`}
-                  placeholder="请输入您的电话号码 | Please enter your phone number"
+                  placeholder="Please enter your phone number"
                   value={phone}
                   onChange={(e) => {
                     setPhone(e.target.value);
@@ -221,7 +263,7 @@ function CustomerInfoPage() {
                   className={`${styles.input} ${
                     errors.email ? styles.inputError : ""
                   }`}
-                  placeholder="请输入您的邮箱地址 | Please enter your email address"
+                  placeholder="Please enter your email address"
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
@@ -237,13 +279,13 @@ function CustomerInfoPage() {
 
               <div className={styles.formGroup}>
                 <label htmlFor="wechat" className={styles.label}>
-                  微信号/微信名 | WeChat ID/Name
+                  微信号 | WeChat ID
                 </label>
                 <input
                   type="text"
                   id="wechat"
                   className={styles.input}
-                  placeholder="请输入您的微信号或微信名（可选）| Please enter your WeChat ID or name (optional)"
+                  placeholder="Please enter your WeChat ID"
                   value={wechat}
                   onChange={(e) => {
                     setWechat(e.target.value);
