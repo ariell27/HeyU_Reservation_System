@@ -14,6 +14,7 @@ import {
   generateDefaultTimeSlots,
   isTimeSlotBooked,
   parseDuration,
+  formatDateToLocalString as formatDateToLocalStringUtil,
 } from "../utils/timeSlotUtils";
 import styles from "./AdminPage.module.css";
 
@@ -193,14 +194,38 @@ function AdminPage() {
     }
   };
 
-  const handleUnblockTime = async (dateStr, time) => {
+  const handleUnblockTime = async (dateStr, time, allSlots = []) => {
     try {
       // 确保时间格式是 "HH:MM" 格式
       const normalizedTime = time.includes(":")
         ? time
         : `${time.padStart(2, "0")}:00`;
 
-      await deleteBlockedTime(dateStr, normalizedTime);
+      const existingBlock = blockedDates.find((b) => b.date === dateStr);
+
+      // 如果整个日期被屏蔽（times为空数组），需要转换为部分屏蔽
+      if (existingBlock && existingBlock.times.length === 0) {
+        // 生成所有时间槽，然后移除被取消的时间槽
+        if (allSlots.length === 0) {
+          // 如果没有提供 allSlots，尝试从日期字符串创建 Date 对象
+          const blockedDate = new Date(dateStr + "T00:00:00");
+          if (!isNaN(blockedDate.getTime())) {
+            const slots3h = generateDefaultTimeSlots(blockedDate, 3);
+            const slots5h = generateDefaultTimeSlots(blockedDate, 5);
+            allSlots = [...new Set([...slots3h, ...slots5h])].sort();
+          }
+        }
+        // 移除被取消的时间槽
+        const remainingTimes = allSlots.filter(
+          (slot) => slot !== normalizedTime
+        );
+        // 更新为部分屏蔽
+        await saveBlockedDate({ date: dateStr, times: remainingTimes });
+      } else {
+        // 正常情况：删除单个时间槽
+        await deleteBlockedTime(dateStr, normalizedTime);
+      }
+
       // 重新从后端获取以确保同步
       const freshData = await getBlockedDates();
       setBlockedDates(freshData);
@@ -212,7 +237,7 @@ function AdminPage() {
     }
   };
 
-  const handleBlockTime = async (dateStr, time) => {
+  const handleBlockTime = async (dateStr, time, allSlots = []) => {
     try {
       // 确保时间格式是 "HH:MM" 格式
       const normalizedTime = time.includes(":")
@@ -221,21 +246,39 @@ function AdminPage() {
 
       const existingBlock = blockedDates.find((b) => b.date === dateStr);
       let updatedBlockedDate;
+      let newTimes;
 
       if (existingBlock) {
-        // 如果日期已存在，添加时间段
-        if (!existingBlock.times.includes(normalizedTime)) {
-          updatedBlockedDate = {
-            date: dateStr,
-            times: [...existingBlock.times, normalizedTime],
-          };
-          await saveBlockedDate(updatedBlockedDate);
+        // 如果整个日期已被屏蔽（times为空数组），先取消全屏蔽，添加单个时间槽
+        if (existingBlock.times.length === 0) {
+          newTimes = [normalizedTime];
+        } else {
+          // 如果日期已存在，添加时间段
+          if (!existingBlock.times.includes(normalizedTime)) {
+            newTimes = [...existingBlock.times, normalizedTime];
+          } else {
+            // 如果时间槽已存在，直接返回
+            return;
+          }
         }
       } else {
         // 如果日期不存在，创建新记录
-        updatedBlockedDate = { date: dateStr, times: [normalizedTime] };
-        await saveBlockedDate(updatedBlockedDate);
+        newTimes = [normalizedTime];
       }
+
+      // 检查是否所有时间槽都被屏蔽
+      const allSlotsSet = new Set(allSlots);
+      const blockedTimesSet = new Set(newTimes);
+      const allBlocked = allSlots.every((slot) => blockedTimesSet.has(slot));
+
+      // 如果所有时间槽都被屏蔽，转换为屏蔽一整天（times为空数组）
+      if (allBlocked && allSlots.length > 0) {
+        updatedBlockedDate = { date: dateStr, times: [] };
+      } else {
+        updatedBlockedDate = { date: dateStr, times: newTimes };
+      }
+
+      await saveBlockedDate(updatedBlockedDate);
 
       // 重新从后端获取以确保同步
       const freshData = await getBlockedDates();
@@ -271,9 +314,15 @@ function AdminPage() {
     return time;
   };
 
-  const getBlockedTimesForDate = (dateStr) => {
+  const getBlockedTimesForDate = (dateStr, allSlots = []) => {
     const blocked = blockedDates.find((b) => b.date === dateStr);
     if (!blocked) return [];
+
+    // 如果整个日期被屏蔽（times为空数组），返回所有时间槽
+    if (blocked.times.length === 0) {
+      return allSlots;
+    }
+
     // 确保返回的时间格式是 "HH:MM" 格式
     return blocked.times.map((time) => {
       if (time.includes(":")) {
@@ -520,80 +569,103 @@ function AdminPage() {
                     const allSlots = [
                       ...new Set([...slots3h, ...slots5h]),
                     ].sort();
-                    return allSlots;
-                  })().map((time) => {
+
                     const dateStr = formatDateToLocalString(selectedBlockDate);
-                    const blockedTimes = getBlockedTimesForDate(dateStr);
-                    // 确保时间格式一致：使用 "HH:MM" 格式进行比较
-                    const normalizedTime = time; // generateDefaultTimeSlots 已经返回 "HH:MM" 格式
-                    const isBlocked = blockedTimes.some(
-                      (blockedTime) => blockedTime === normalizedTime
+                    const blockedTimes = getBlockedTimesForDate(
+                      dateStr,
+                      allSlots
                     );
                     const isFullyBlocked = isDateFullyBlocked(dateStr);
 
-                    // 获取该日期的预订数据
-                    const dateBookings = getBookingsForDate(selectedBlockDate);
-                    // 检查时间槽是否已被预订（检查3小时和5小时两种情况）
-                    const isBooked3h = isTimeSlotBooked(time, dateBookings, 3);
-                    const isBooked5h = isTimeSlotBooked(time, dateBookings, 5);
-                    const isBooked = isBooked3h || isBooked5h;
+                    return allSlots.map((time) => {
+                      // 确保时间格式一致：使用 "HH:MM" 格式进行比较
+                      const normalizedTime = time; // generateDefaultTimeSlots 已经返回 "HH:MM" 格式
+                      // 如果整个日期被屏蔽，所有时间槽都显示为已屏蔽
+                      const isBlocked =
+                        isFullyBlocked ||
+                        blockedTimes.some(
+                          (blockedTime) => blockedTime === normalizedTime
+                        );
 
-                    // 查找该时间槽的预订信息（用于显示）
-                    const bookingAtTime = dateBookings.find((booking) => {
-                      const bookingTime =
-                        booking.selectedTime ||
-                        booking.time ||
-                        booking.startTime;
-                      if (!bookingTime) return false;
-                      const [bookingStartHours] = bookingTime
-                        .split(":")
-                        .map(Number);
-                      const [timeHours] = time.split(":").map(Number);
-                      return bookingStartHours === timeHours;
-                    });
+                      // 获取该日期的预订数据
+                      const dateBookings =
+                        getBookingsForDate(selectedBlockDate);
+                      // 检查时间槽是否已被预订（检查3小时和5小时两种情况）
+                      const isBooked3h = isTimeSlotBooked(
+                        time,
+                        dateBookings,
+                        3
+                      );
+                      const isBooked5h = isTimeSlotBooked(
+                        time,
+                        dateBookings,
+                        5
+                      );
+                      const isBooked = isBooked3h || isBooked5h;
 
-                    return (
-                      <button
-                        key={time}
-                        className={`${styles.timeSlotButton} ${
-                          isBlocked || isFullyBlocked ? styles.blocked : ""
-                        } ${isBooked ? styles.booked : ""}`}
-                        onClick={() => {
-                          if (isFullyBlocked || isBooked) return;
-                          // 确保存储的时间格式是 "HH:MM"
-                          const timeToStore = normalizedTime;
-                          if (isBlocked) {
-                            handleUnblockTime(dateStr, timeToStore);
-                          } else {
-                            handleBlockTime(dateStr, timeToStore);
+                      // 查找该时间槽的预订信息（用于显示）
+                      const bookingAtTime = dateBookings.find((booking) => {
+                        const bookingTime =
+                          booking.selectedTime ||
+                          booking.time ||
+                          booking.startTime;
+                        if (!bookingTime) return false;
+                        const [bookingStartHours] = bookingTime
+                          .split(":")
+                          .map(Number);
+                        const [timeHours] = time.split(":").map(Number);
+                        return bookingStartHours === timeHours;
+                      });
+
+                      return (
+                        <button
+                          key={time}
+                          className={`${styles.timeSlotButton} ${
+                            isBlocked || isFullyBlocked ? styles.blocked : ""
+                          } ${isBooked ? styles.booked : ""}`}
+                          onClick={() => {
+                            if (isBooked) return;
+                            // 确保存储的时间格式是 "HH:MM"
+                            const timeToStore = normalizedTime;
+                            if (isBlocked) {
+                              // 从全天屏蔽中取消时间槽时，需要传入 allSlots
+                              handleUnblockTime(
+                                dateStr,
+                                timeToStore,
+                                isFullyBlocked ? allSlots : undefined
+                              );
+                            } else {
+                              // 使用外层已生成的所有时间槽列表
+                              handleBlockTime(dateStr, timeToStore, allSlots);
+                            }
+                          }}
+                          disabled={isBooked}
+                          title={
+                            isBooked
+                              ? bookingAtTime
+                                ? `已被预约 | Booked by ${
+                                    bookingAtTime.customerName ||
+                                    bookingAtTime.name
+                                  }`
+                                : "已被预约 | Booked"
+                              : isBlocked
+                              ? isFullyBlocked
+                                ? "点击取消此时间槽的屏蔽 | Click to unblock this time slot"
+                                : "点击取消屏蔽 | Click to unblock"
+                              : "点击屏蔽此时间段 | Click to block"
                           }
-                        }}
-                        disabled={isFullyBlocked || isBooked}
-                        title={
-                          isFullyBlocked
-                            ? "整个日期已被屏蔽 | Full date is blocked"
-                            : isBooked
-                            ? bookingAtTime
-                              ? `已被预约 | Booked by ${
-                                  bookingAtTime.customerName ||
-                                  bookingAtTime.name
-                                }`
-                              : "已被预约 | Booked"
-                            : isBlocked
-                            ? "点击取消屏蔽 | Click to unblock"
-                            : "点击屏蔽此时间段 | Click to block"
-                        }
-                      >
-                        {formatTime(time)}
-                        {isBlocked && (
-                          <span className={styles.blockedIcon}>✕</span>
-                        )}
-                        {isBooked && !isBlocked && (
-                          <span className={styles.bookedIcon}>✓</span>
-                        )}
-                      </button>
-                    );
-                  })}
+                        >
+                          {formatTime(time)}
+                          {isBlocked && !isBooked && (
+                            <span className={styles.blockedIcon}>✕</span>
+                          )}
+                          {isBooked && !isBlocked && (
+                            <span className={styles.bookedIcon}>✓</span>
+                          )}
+                        </button>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             )}
@@ -609,33 +681,72 @@ function AdminPage() {
               ) : (
                 blockedDates.map((blocked) => {
                   const isFull = blocked.times.length === 0;
+                  // 如果整个日期被屏蔽，生成所有时间槽用于显示
+                  let timesToShow = blocked.times;
+                  if (isFull) {
+                    // 尝试从日期字符串创建 Date 对象
+                    const blockedDate = new Date(blocked.date + "T00:00:00");
+                    if (!isNaN(blockedDate.getTime())) {
+                      const slots3h = generateDefaultTimeSlots(blockedDate, 3);
+                      const slots5h = generateDefaultTimeSlots(blockedDate, 5);
+                      timesToShow = [
+                        ...new Set([...slots3h, ...slots5h]),
+                      ].sort();
+                    }
+                  }
                   return (
                     <div key={blocked.date} className={styles.blockedDateItem}>
                       <div className={styles.blockedDateInfo}>
                         <span className={styles.blockedDateText}>
                           {formatDate(blocked.date)}
+                          {isFull && (
+                            <span className={styles.fullBlockLabel}>
+                              {" "}
+                              (全天 | Full Day)
+                            </span>
+                          )}
                         </span>
-                        {isFull || (
-                          <div className={styles.blockedTimesList}>
-                            {blocked.times.map((time) => (
-                              <span
-                                key={time}
-                                className={styles.blockedTimeTag}
-                              >
-                                {formatTime(time)}
-                                <button
-                                  className={styles.removeTimeButton}
-                                  onClick={() =>
-                                    handleUnblockTime(blocked.date, time)
+                        <div className={styles.blockedTimesList}>
+                          {timesToShow.map((time) => (
+                            <span key={time} className={styles.blockedTimeTag}>
+                              {formatTime(time)}
+                              <button
+                                className={styles.removeTimeButton}
+                                onClick={() => {
+                                  // 如果是全天屏蔽，需要传入所有时间槽
+                                  if (isFull) {
+                                    const blockedDate = new Date(
+                                      blocked.date + "T00:00:00"
+                                    );
+                                    if (!isNaN(blockedDate.getTime())) {
+                                      const slots3h = generateDefaultTimeSlots(
+                                        blockedDate,
+                                        3
+                                      );
+                                      const slots5h = generateDefaultTimeSlots(
+                                        blockedDate,
+                                        5
+                                      );
+                                      const allSlotsForUnblock = [
+                                        ...new Set([...slots3h, ...slots5h]),
+                                      ].sort();
+                                      handleUnblockTime(
+                                        blocked.date,
+                                        time,
+                                        allSlotsForUnblock
+                                      );
+                                    }
+                                  } else {
+                                    handleUnblockTime(blocked.date, time);
                                   }
-                                  title="取消屏蔽 | Unblock"
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                                }}
+                                title="取消屏蔽 | Unblock"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                        </div>
                       </div>
                       <button
                         className={styles.unblockButton}
