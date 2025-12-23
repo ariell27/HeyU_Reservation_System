@@ -73,9 +73,11 @@ function BookingPage() {
 
                     <div className={styles.serviceInfo}>
                       <div className={styles.serviceMeta}>
-                        <span className={styles.duration}>
-                          {service.duration} | {service.durationEn}
-                        </span>
+                        {service.duration && (
+                          <span className={styles.duration}>
+                            {service.duration} | {service.durationEn}
+                          </span>
+                        )}
                         <span
                           className={`${styles.price} ${
                             service.isAddOn ? styles.addOnPrice : ""
