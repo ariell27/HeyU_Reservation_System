@@ -1,0 +1,28 @@
+{
+  "bookings": [
+    {
+      "bookingId": "BK17664721197597w8pwti6b",
+      "service": {
+        "id": 1,
+        "nameCn": "纯色/跳色",
+        "nameEn": "Solid Color/Accent Color",
+        "duration": "1.5小时",
+        "durationEn": "1.5 hrs",
+        "price": "$55",
+        "category": "本甲",
+        "description": "Classic solid color or accent color design on natural nails.",
+        "descriptionCn": "经典纯色或跳色设计，适合日常搭配。"
+      },
+      "selectedDate": "2025-12-23T13:00:00.000Z",
+      "selectedTime": "09:00",
+      "name": "a",
+      "wechatName": "a",
+      "email": "123@gmail.com",
+      "phone": "0401306025",
+      "wechat": "",
+      "status": "confirmed",
+      "createdAt": "2025-12-23T06:41:59.759Z"
+    }
+  ],
+  "lastUpdated": "2025-12-23T06:41:59.759Z"
+}

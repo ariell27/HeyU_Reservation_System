@@ -154,3 +154,94 @@ export async function getBookingById(bookingId) {
   }
 }
 
+/**
+ * 获取所有被屏蔽的日期
+ * @returns {Promise<Array>} 屏蔽日期列表
+ */
+export async function getBlockedDates() {
+  try {
+    const response = await fetch(`${API_URL}/api/blocked-dates`);
+    
+    if (!response.ok) {
+      throw new Error(`获取屏蔽日期失败: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data.blockedDates || [];
+  } catch (error) {
+    console.error('获取屏蔽日期列表失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * 保存屏蔽日期（创建或更新）
+ * @param {Object} blockedDate - 屏蔽日期数据 { date: "YYYY-MM-DD", times: ["10:00", "14:30"] }
+ * @returns {Promise<Object>} 保存的屏蔽日期对象
+ */
+export async function saveBlockedDate(blockedDate) {
+  try {
+    const response = await fetch(`${API_URL}/api/blocked-dates`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(blockedDate),
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || '保存屏蔽日期失败');
+    }
+    
+    const data = await response.json();
+    return data.blockedDate;
+  } catch (error) {
+    console.error('保存屏蔽日期失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * 删除整个日期的屏蔽
+ * @param {string} date - 日期字符串 (YYYY-MM-DD)
+ * @returns {Promise<void>}
+ */
+export async function deleteBlockedDate(date) {
+  try {
+    const response = await fetch(`${API_URL}/api/blocked-dates/${date}`, {
+      method: 'DELETE',
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || '删除屏蔽日期失败');
+    }
+  } catch (error) {
+    console.error('删除屏蔽日期失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * 删除特定时间段的屏蔽
+ * @param {string} date - 日期字符串 (YYYY-MM-DD)
+ * @param {string} time - 时间字符串 (HH:MM)
+ * @returns {Promise<void>}
+ */
+export async function deleteBlockedTime(date, time) {
+  try {
+    const response = await fetch(`${API_URL}/api/blocked-dates/${date}/times/${time}`, {
+      method: 'DELETE',
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || '删除时间段屏蔽失败');
+    }
+  } catch (error) {
+    console.error('删除时间段屏蔽失败:', error);
+    throw error;
+  }
+}
+
