@@ -179,6 +179,17 @@
   margin-top: var(--spacing-sm);
 }
 
+.noSlotsMessage {
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-md);
+  text-align: center;
+  color: var(--color-text-light);
+  font-size: 0.95rem;
+  background-color: var(--color-secondary-light);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
 .timeSlot {
   padding: 0.6rem 1.2rem;
   border: 1px solid var(--color-border);

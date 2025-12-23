@@ -10,7 +10,11 @@ import {
   deleteBlockedDate,
   deleteBlockedTime,
 } from "../utils/api";
-import { generateAllTimeSlots } from "../utils/timeSlotUtils";
+import {
+  generateDefaultTimeSlots,
+  isTimeSlotBooked,
+  parseDuration,
+} from "../utils/timeSlotUtils";
 import styles from "./AdminPage.module.css";
 
 function AdminPage() {
@@ -78,11 +82,14 @@ function AdminPage() {
             id: booking.bookingId, // 保留完整 ID 用于 key
             displayId: numericId, // 用于显示的简化数字 ID
             customerName: booking.name,
+            name: booking.name, // 也保留 name 字段用于显示
             phone: booking.phone,
             email: booking.email,
             service: booking.service,
             date: bookingDate,
             time: booking.selectedTime,
+            selectedTime: booking.selectedTime, // 确保包含 selectedTime
+            startTime: booking.selectedTime, // 也作为 startTime 的别名
             status: booking.status,
             createdAt: new Date(booking.createdAt),
           };
@@ -260,11 +267,8 @@ function AdminPage() {
   };
 
   const formatTime = (time) => {
-    const [hours, minutes] = time.split(":");
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? "pm" : "am";
-    const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-    return `${displayHour}:${minutes} ${ampm}`;
+    // 使用24小时制显示，和 TimeSelectionPage 保持一致
+    return time;
   };
 
   const getBlockedTimesForDate = (dateStr) => {
@@ -502,7 +506,22 @@ function AdminPage() {
                 </div>
 
                 <div className={styles.timeSlotsGrid}>
-                  {generateAllTimeSlots(selectedBlockDate).map((time) => {
+                  {(() => {
+                    // 生成所有可能的默认时间槽（合并3小时和5小时服务的默认时间槽）
+                    const slots3h = generateDefaultTimeSlots(
+                      selectedBlockDate,
+                      3
+                    );
+                    const slots5h = generateDefaultTimeSlots(
+                      selectedBlockDate,
+                      5
+                    );
+                    // 合并并去重
+                    const allSlots = [
+                      ...new Set([...slots3h, ...slots5h]),
+                    ].sort();
+                    return allSlots;
+                  })().map((time) => {
                     const dateStr = formatDateToLocalString(selectedBlockDate);
                     const blockedTimes = getBlockedTimesForDate(dateStr);
                     // 确保时间格式一致：使用 "HH:MM" 格式进行比较
@@ -512,14 +531,35 @@ function AdminPage() {
                     );
                     const isFullyBlocked = isDateFullyBlocked(dateStr);
 
+                    // 获取该日期的预订数据
+                    const dateBookings = getBookingsForDate(selectedBlockDate);
+                    // 检查时间槽是否已被预订（检查3小时和5小时两种情况）
+                    const isBooked3h = isTimeSlotBooked(time, dateBookings, 3);
+                    const isBooked5h = isTimeSlotBooked(time, dateBookings, 5);
+                    const isBooked = isBooked3h || isBooked5h;
+
+                    // 查找该时间槽的预订信息（用于显示）
+                    const bookingAtTime = dateBookings.find((booking) => {
+                      const bookingTime =
+                        booking.selectedTime ||
+                        booking.time ||
+                        booking.startTime;
+                      if (!bookingTime) return false;
+                      const [bookingStartHours] = bookingTime
+                        .split(":")
+                        .map(Number);
+                      const [timeHours] = time.split(":").map(Number);
+                      return bookingStartHours === timeHours;
+                    });
+
                     return (
                       <button
                         key={time}
                         className={`${styles.timeSlotButton} ${
                           isBlocked || isFullyBlocked ? styles.blocked : ""
-                        }`}
+                        } ${isBooked ? styles.booked : ""}`}
                         onClick={() => {
-                          if (isFullyBlocked) return;
+                          if (isFullyBlocked || isBooked) return;
                           // 确保存储的时间格式是 "HH:MM"
                           const timeToStore = normalizedTime;
                           if (isBlocked) {
@@ -528,10 +568,17 @@ function AdminPage() {
                             handleBlockTime(dateStr, timeToStore);
                           }
                         }}
-                        disabled={isFullyBlocked}
+                        disabled={isFullyBlocked || isBooked}
                         title={
                           isFullyBlocked
                             ? "整个日期已被屏蔽 | Full date is blocked"
+                            : isBooked
+                            ? bookingAtTime
+                              ? `已被预约 | Booked by ${
+                                  bookingAtTime.customerName ||
+                                  bookingAtTime.name
+                                }`
+                              : "已被预约 | Booked"
                             : isBlocked
                             ? "点击取消屏蔽 | Click to unblock"
                             : "点击屏蔽此时间段 | Click to block"
@@ -540,6 +587,9 @@ function AdminPage() {
                         {formatTime(time)}
                         {isBlocked && (
                           <span className={styles.blockedIcon}>✕</span>
+                        )}
+                        {isBooked && !isBlocked && (
+                          <span className={styles.bookedIcon}>✓</span>
                         )}
                       </button>
                     );
