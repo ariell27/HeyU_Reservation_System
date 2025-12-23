@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import bookingsRouter from './routes/bookings.js';
 import servicesRouter from './routes/services.js';
+import blockedDatesRouter from './routes/blockedDates.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -19,6 +20,7 @@ app.get('/health', (req, res) => {
 // API 路由
 app.use('/api/bookings', bookingsRouter);
 app.use('/api/services', servicesRouter);
+app.use('/api/blocked-dates', blockedDatesRouter);
 
 // 404 处理
 app.use((req, res) => {
@@ -44,5 +46,6 @@ app.listen(PORT, () => {
   console.log(`📡 服务器运行在 http://localhost:${PORT}`);
   console.log(`💾 预订数据存储: backend/data/bookings.json`);
   console.log(`📋 服务数据存储: backend/data/services.json`);
+  console.log(`🚫 屏蔽日期存储: backend/data/blockedDates.json`);
 });
 

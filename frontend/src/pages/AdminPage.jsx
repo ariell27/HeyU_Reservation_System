@@ -1,7 +1,15 @@
 import { useState, useEffect } from "react";
 import Header from "../components/Header";
 import Calendar from "../components/Calendar";
-import { getServices, saveService, getBookings } from "../utils/api";
+import { 
+  getServices, 
+  saveService, 
+  getBookings,
+  getBlockedDates,
+  saveBlockedDate,
+  deleteBlockedDate,
+  deleteBlockedTime
+} from "../utils/api";
 import styles from "./AdminPage.module.css";
 
 // 生成可用时间槽
@@ -89,6 +97,20 @@ function AdminPage() {
     fetchBookings();
   }, []);
 
+  // 从后端加载屏蔽日期数据
+  useEffect(() => {
+    const fetchBlockedDates = async () => {
+      try {
+        const blockedDatesData = await getBlockedDates();
+        setBlockedDates(blockedDatesData);
+      } catch (err) {
+        console.error("获取屏蔽日期失败:", err);
+        // 不显示错误，因为这是可选功能
+      }
+    };
+    fetchBlockedDates();
+  }, []);
+
   const handleEditService = (service) => {
     setEditingService({ ...service });
   };
@@ -142,42 +164,68 @@ function AdminPage() {
     setShowAddService(true);
   };
 
-  const handleUnblockDate = (dateStr) => {
-    setBlockedDates(blockedDates.filter((d) => d.date !== dateStr));
+  const handleUnblockDate = async (dateStr) => {
+    try {
+      await deleteBlockedDate(dateStr);
+      setBlockedDates(blockedDates.filter((d) => d.date !== dateStr));
+    } catch (err) {
+      console.error("删除屏蔽日期失败:", err);
+      alert("删除屏蔽日期失败，请稍后重试。| Failed to unblock date, please try again.");
+    }
   };
 
-  const handleUnblockTime = (dateStr, time) => {
-    setBlockedDates(
-      blockedDates
-        .map((blocked) => {
-          if (blocked.date === dateStr) {
-            const newTimes = blocked.times.filter((t) => t !== time);
-            // 如果没有时间段了，删除整个日期记录
-            if (newTimes.length === 0) {
-              return null;
+  const handleUnblockTime = async (dateStr, time) => {
+    try {
+      await deleteBlockedTime(dateStr, time);
+      setBlockedDates(
+        blockedDates
+          .map((blocked) => {
+            if (blocked.date === dateStr) {
+              const newTimes = blocked.times.filter((t) => t !== time);
+              // 如果没有时间段了，删除整个日期记录
+              if (newTimes.length === 0) {
+                return null;
+              }
+              return { ...blocked, times: newTimes };
             }
-            return { ...blocked, times: newTimes };
-          }
-          return blocked;
-        })
-        .filter(Boolean)
-    );
+            return blocked;
+          })
+          .filter(Boolean)
+      );
+    } catch (err) {
+      console.error("删除时间段屏蔽失败:", err);
+      alert("删除时间段屏蔽失败，请稍后重试。| Failed to unblock time, please try again.");
+    }
   };
 
-  const handleBlockTime = (dateStr, time) => {
-    const existingBlock = blockedDates.find((b) => b.date === dateStr);
-    if (existingBlock) {
-      // 如果日期已存在，添加时间段
-      if (!existingBlock.times.includes(time)) {
-        setBlockedDates(
-          blockedDates.map((b) =>
-            b.date === dateStr ? { ...b, times: [...b.times, time] } : b
-          )
-        );
+  const handleBlockTime = async (dateStr, time) => {
+    try {
+      const existingBlock = blockedDates.find((b) => b.date === dateStr);
+      let updatedBlockedDate;
+
+      if (existingBlock) {
+        // 如果日期已存在，添加时间段
+        if (!existingBlock.times.includes(time)) {
+          updatedBlockedDate = {
+            date: dateStr,
+            times: [...existingBlock.times, time]
+          };
+          await saveBlockedDate(updatedBlockedDate);
+          setBlockedDates(
+            blockedDates.map((b) =>
+              b.date === dateStr ? updatedBlockedDate : b
+            )
+          );
+        }
+      } else {
+        // 如果日期不存在，创建新记录
+        updatedBlockedDate = { date: dateStr, times: [time] };
+        await saveBlockedDate(updatedBlockedDate);
+        setBlockedDates([...blockedDates, updatedBlockedDate]);
       }
-    } else {
-      // 如果日期不存在，创建新记录
-      setBlockedDates([...blockedDates, { date: dateStr, times: [time] }]);
+    } catch (err) {
+      console.error("保存时间段屏蔽失败:", err);
+      alert("保存时间段屏蔽失败，请稍后重试。| Failed to block time, please try again.");
     }
   };
 
@@ -223,11 +271,18 @@ function AdminPage() {
     }
   };
 
-  const handleBlockFullDate = (dateStr) => {
-    // 屏蔽整个日期（times 为空数组表示整个日期被屏蔽）
-    const existingBlock = blockedDates.find((b) => b.date === dateStr);
-    if (!existingBlock) {
-      setBlockedDates([...blockedDates, { date: dateStr, times: [] }]);
+  const handleBlockFullDate = async (dateStr) => {
+    try {
+      // 屏蔽整个日期（times 为空数组表示整个日期被屏蔽）
+      const existingBlock = blockedDates.find((b) => b.date === dateStr);
+      if (!existingBlock) {
+        const newBlockedDate = { date: dateStr, times: [] };
+        await saveBlockedDate(newBlockedDate);
+        setBlockedDates([...blockedDates, newBlockedDate]);
+      }
+    } catch (err) {
+      console.error("保存屏蔽日期失败:", err);
+      alert("保存屏蔽日期失败，请稍后重试。| Failed to block date, please try again.");
     }
   };
 
