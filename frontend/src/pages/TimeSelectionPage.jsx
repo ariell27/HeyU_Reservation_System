@@ -3,7 +3,7 @@ import { useLocation, useNavigate, Link } from "react-router-dom";
 import Header from "../components/Header";
 import Button from "../components/Button";
 import Calendar from "../components/Calendar";
-import { getBookings } from "../utils/api";
+import { getBookings, getBlockedDates } from "../utils/api";
 import styles from "./TimeSelectionPage.module.css";
 
 // 从服务时长字符串中提取小时数
@@ -62,6 +62,26 @@ const isTimeSlotBooked = (time, bookings, serviceDuration) => {
   });
 };
 
+// 检查时间槽是否被 block
+const isTimeSlotBlocked = (time, date, blockedDates) => {
+  if (!date || !blockedDates || blockedDates.length === 0) return false;
+
+  const dateStr = date.toISOString().split("T")[0];
+  const blockedDate = blockedDates.find((bd) => bd.date === dateStr);
+
+  if (!blockedDate) return false;
+
+  // 如果 times 数组为空，表示整个日期被 block
+  if (!blockedDate.times || blockedDate.times.length === 0) {
+    return true;
+  }
+
+  // 检查特定时间段是否被 block
+  // 对于 block 的时间段，我们需要检查时间槽是否与 block 的时间段重叠
+  // 这里假设 block 的时间段是精确的时间点，如果时间槽的开始时间匹配，则被 block
+  return blockedDate.times.includes(time);
+};
+
 // 获取指定日期的预订数据
 const fetchBookingsForDate = async (date) => {
   if (!date) return [];
@@ -88,12 +108,17 @@ const fetchBookingsForDate = async (date) => {
 };
 
 // 生成可用时间槽
-const generateTimeSlots = (date, service, bookings = []) => {
+const generateTimeSlots = (date, service, bookings = [], blockedDates = []) => {
   const slotsSet = new Set(); // 使用Set去重
   const endHour = getEndHour(date); // 根据日期获取结束时间
 
   if (!service) {
     // 如果没有选择服务，返回空数组
+    return [];
+  }
+
+  // 检查整个日期是否被 block
+  if (isTimeSlotBlocked("00:00", date, blockedDates)) {
     return [];
   }
 
@@ -103,7 +128,10 @@ const generateTimeSlots = (date, service, bookings = []) => {
   // 1. 如果没有预订，返回默认时间槽
   if (!bookings || bookings.length === 0) {
     defaultSlots.forEach((time) => {
-      if (isTimeSlotValid(time, serviceDuration, endHour)) {
+      if (
+        isTimeSlotValid(time, serviceDuration, endHour) &&
+        !isTimeSlotBlocked(time, date, blockedDates)
+      ) {
         slotsSet.add(time);
       }
     });
@@ -112,7 +140,10 @@ const generateTimeSlots = (date, service, bookings = []) => {
     if (date) {
       const dayOfWeek = date.getDay();
       if ((dayOfWeek === 2 || dayOfWeek === 4) && serviceDuration === 3) {
-        if (isTimeSlotValid("18:00", serviceDuration, endHour)) {
+        if (
+          isTimeSlotValid("18:00", serviceDuration, endHour) &&
+          !isTimeSlotBlocked("18:00", date, blockedDates)
+        ) {
           slotsSet.add("18:00");
         }
       }
@@ -123,24 +154,26 @@ const generateTimeSlots = (date, service, bookings = []) => {
   }
 
   // 2. 如果有预订，动态计算可用时间槽
-  // 2.1 添加默认时间槽（如果有效且不与预订冲突）
+  // 2.1 添加默认时间槽（如果有效且不与预订冲突且不被 block）
   defaultSlots.forEach((time) => {
     if (
       isTimeSlotValid(time, serviceDuration, endHour) &&
-      !isTimeSlotBooked(time, bookings, serviceDuration)
+      !isTimeSlotBooked(time, bookings, serviceDuration) &&
+      !isTimeSlotBlocked(time, date, blockedDates)
     ) {
       slotsSet.add(time);
     }
   });
 
-  // 2.2 周二/周四添加18:00（如果服务是3小时且不与预订冲突）
+  // 2.2 周二/周四添加18:00（如果服务是3小时且不与预订冲突且不被 block）
   if (date) {
     const dayOfWeek = date.getDay();
     if (dayOfWeek === 2 || dayOfWeek === 4) {
       if (
         serviceDuration === 3 &&
         isTimeSlotValid("18:00", serviceDuration, endHour) &&
-        !isTimeSlotBooked("18:00", bookings, serviceDuration)
+        !isTimeSlotBooked("18:00", bookings, serviceDuration) &&
+        !isTimeSlotBlocked("18:00", date, blockedDates)
       ) {
         slotsSet.add("18:00");
       }
@@ -168,7 +201,8 @@ const generateTimeSlots = (date, service, bookings = []) => {
       if (defaultHours + serviceDuration <= bookingStartHours) {
         if (
           isTimeSlotValid(defaultTime, serviceDuration, endHour) &&
-          !isTimeSlotBooked(defaultTime, bookings, serviceDuration)
+          !isTimeSlotBooked(defaultTime, bookings, serviceDuration) &&
+          !isTimeSlotBlocked(defaultTime, date, blockedDates)
         ) {
           slotsSet.add(defaultTime);
         }
@@ -179,7 +213,8 @@ const generateTimeSlots = (date, service, bookings = []) => {
     const nextAvailableTime = `${bookingEnd.toString().padStart(2, "0")}:00`;
     if (
       isTimeSlotValid(nextAvailableTime, serviceDuration, endHour) &&
-      !isTimeSlotBooked(nextAvailableTime, bookings, serviceDuration)
+      !isTimeSlotBooked(nextAvailableTime, bookings, serviceDuration) &&
+      !isTimeSlotBlocked(nextAvailableTime, date, blockedDates)
     ) {
       // 检查是否为周二/周四晚上（18:00之后），如果是且服务是5小时，则不添加
       if (!(isEveningTime(nextAvailableTime, date) && serviceDuration === 5)) {
@@ -194,7 +229,8 @@ const generateTimeSlots = (date, service, bookings = []) => {
       if (defaultHours >= bookingEnd) {
         if (
           isTimeSlotValid(defaultTime, serviceDuration, endHour) &&
-          !isTimeSlotBooked(defaultTime, bookings, serviceDuration)
+          !isTimeSlotBooked(defaultTime, bookings, serviceDuration) &&
+          !isTimeSlotBlocked(defaultTime, date, blockedDates)
         ) {
           slotsSet.add(defaultTime);
         }
@@ -202,8 +238,13 @@ const generateTimeSlots = (date, service, bookings = []) => {
     });
   });
 
-  // 2.4 过滤冲突：移除与预订冲突的时间槽
+  // 2.4 过滤冲突：移除与预订冲突或被 block 的时间槽
   const finalSlots = Array.from(slotsSet).filter((time) => {
+    // 检查是否被 block
+    if (isTimeSlotBlocked(time, date, blockedDates)) {
+      return false;
+    }
+
     // 检查是否与预订冲突
     if (isTimeSlotBooked(time, bookings, serviceDuration)) {
       return false;
@@ -229,6 +270,7 @@ function TimeSelectionPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedTime, setSelectedTime] = useState(null);
   const [bookings, setBookings] = useState([]);
+  const [blockedDates, setBlockedDates] = useState([]);
 
   useEffect(() => {
     // 如果没有服务信息，返回预约页面
@@ -236,6 +278,18 @@ function TimeSelectionPage() {
       navigate("/booking");
     }
   }, [location, navigate]);
+
+  // 获取所有被屏蔽的日期
+  useEffect(() => {
+    getBlockedDates()
+      .then((data) => {
+        setBlockedDates(data);
+      })
+      .catch((error) => {
+        console.error("Error loading blocked dates:", error);
+        setBlockedDates([]);
+      });
+  }, []);
 
   // 当日期变化时，获取该日期的预订数据
   useEffect(() => {
@@ -278,6 +332,11 @@ function TimeSelectionPage() {
       return false;
     }
 
+    // 检查是否被 block
+    if (isTimeSlotBlocked(time, selectedDate, blockedDates)) {
+      return false;
+    }
+
     // 检查是否与已预订冲突
     if (isTimeSlotBooked(time, bookings, serviceDuration)) {
       return false;
@@ -301,7 +360,12 @@ function TimeSelectionPage() {
     setSelectedTime(time);
   };
 
-  const timeSlots = generateTimeSlots(selectedDate, selectedService, bookings);
+  const timeSlots = generateTimeSlots(
+    selectedDate,
+    selectedService,
+    bookings,
+    blockedDates
+  );
 
   if (!selectedService) {
     return null;
@@ -351,6 +415,9 @@ function TimeSelectionPage() {
             <Calendar
               selectedDate={selectedDate}
               onDateSelect={handleDateSelect}
+              blockedDates={blockedDates
+                .filter((bd) => !bd.times || bd.times.length === 0)
+                .map((bd) => bd.date)}
             />
 
             {/* 时间选择 */}
