@@ -137,12 +137,12 @@ HeyU_Reservation_System/
 
 ## Page Routes
 
-- `/` - 首页
-- `/booking` - 服务选择页
-- `/booking/time` - 时间选择页
-- `/booking/confirm` - 客户信息确认页
-- `/booking/success` - 预约成功页
-- `/admin` - 管理后台
+- `/` 
+- `/booking` 
+- `/booking/time` 
+- `/booking/confirm` 
+- `/booking/success` 
+- `/admin` 
 
 ## Development
 
