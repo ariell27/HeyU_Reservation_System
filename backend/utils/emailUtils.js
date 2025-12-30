@@ -138,11 +138,6 @@ export function generateEmailContent(bookingData) {
           <p>Thank you for choosing HeyU 禾屿! Your booking has been successfully confirmed.</p>
           
           <div class="detail-item">
-            <div class="label">Booking ID</div>
-            <div class="booking-id">${bookingId || 'N/A'}</div>
-          </div>
-          
-          <div class="detail-item">
             <div class="label">Service</div>
             <div class="value">${service?.nameCn || ''} | ${service?.nameEn || ''}</div>
           </div>
@@ -191,11 +186,6 @@ export function generateEmailContent(bookingData) {
             <div class="label">WeChat ID</div>
             <div class="value">${wechat}</div>
           </div>` : ''}
-          
-          <div class="note">
-            <strong>Important:</strong> We will contact you 24 hours before your appointment via phone or email to confirm.<br>
-            If you have any questions, please feel free to contact us.
-          </div>
         </div>
         <div class="footer">
           <p>This is an automated email, please do not reply.</p>

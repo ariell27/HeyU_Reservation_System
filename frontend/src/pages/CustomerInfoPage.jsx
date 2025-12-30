@@ -20,7 +20,7 @@ function CustomerInfoPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    // 从location state获取预约数据
+    // Get booking data from location state
     if (
       location.state?.service &&
       location.state?.selectedDate &&
@@ -28,13 +28,13 @@ function CustomerInfoPage() {
     ) {
       setBookingData(location.state);
     } else {
-      // 如果没有预约数据，返回预约页面
+      // If no booking data, redirect to booking page
       navigate("/booking");
     }
   }, [location, navigate]);
 
   const validatePhone = (phone) => {
-    // 简单的电话验证：支持多种格式
+    // Simple phone validation: supports multiple formats
     const phoneRegex = /^[\d\s\-\+\(\)]+$/;
     return phoneRegex.test(phone) && phone.replace(/\D/g, "").length >= 8;
   };
@@ -78,8 +78,8 @@ function CustomerInfoPage() {
       setIsSubmitting(true);
 
       try {
-        // 准备完整的预约数据
-        // 将 Date 对象转换为本地日期字符串（YYYY-MM-DD），避免时区问题
+        // Prepare complete booking data
+        // Convert Date object to local date string (YYYY-MM-DD) to avoid timezone issues
         const dateStr =
           bookingData.selectedDate instanceof Date
             ? formatDateToLocalString(bookingData.selectedDate)
@@ -87,7 +87,7 @@ function CustomerInfoPage() {
 
         const completeBookingData = {
           service: bookingData.service,
-          selectedDate: dateStr, // 使用本地日期字符串
+          selectedDate: dateStr, // Use local date string
           selectedTime: bookingData.selectedTime,
           name: name,
           wechatName: wechatName,
@@ -121,7 +121,7 @@ function CustomerInfoPage() {
             // Don't block - backend should have sent email already
           });
 
-        // 导航到成功页面，传递预约数据（包含后端返回的 bookingId）
+        // Navigate to success page, passing booking data (including bookingId returned from backend)
         navigate("/booking/success", {
           state: {
             bookingData: {
@@ -131,10 +131,8 @@ function CustomerInfoPage() {
           },
         });
       } catch (error) {
-        console.error("提交失败:", error);
-        alert(
-          `提交失败，请稍后重试。 | Submission failed, please try again later.\n${error.message}`
-        );
+        console.error("Submission failed:", error);
+        alert(`Submission failed, please try again later.\n${error.message}`);
         setIsSubmitting(false);
       }
     }
@@ -172,7 +170,7 @@ function CustomerInfoPage() {
 
       <div className={styles.container}>
         <div className={styles.mainContent}>
-          {/* 左侧：顾客信息表单 */}
+          {/* Left: Customer information form */}
           <div className={styles.formPanel}>
             <div className={styles.breadcrumbs}>
               <Link to="/booking" className={styles.breadcrumbLink}>
@@ -347,7 +345,7 @@ function CustomerInfoPage() {
             </form>
           </div>
 
-          {/* 右侧：预约摘要 */}
+          {/* Right: Booking summary */}
           <div className={styles.summaryPanel}>
             <div className={styles.businessInfo}>
               <div className={styles.businessName}>HeyU禾屿</div>

@@ -21,8 +21,8 @@ import styles from "./AdminPage.module.css";
 function AdminPage() {
   const [services, setServices] = useState([]);
   const [editingService, setEditingService] = useState(null);
-  // blockedDates 现在存储 { date: "2024-12-20", times: ["10:00", "14:30"] } 格式
-  // 如果 times 为空数组，表示整个日期被屏蔽
+  // blockedDates now stores { date: "2024-12-20", times: ["10:00", "14:30"] } format
+  // If times is an empty array, it means the entire date is blocked
   const [blockedDates, setBlockedDates] = useState([]);
   const [_showAddService, setShowAddService] = useState(false);
   const [activeTab, setActiveTab] = useState("bookings"); // services, dates, bookings
@@ -32,47 +32,47 @@ function AdminPage() {
   const [_loading, setLoading] = useState(true);
   const [_error, setError] = useState(null);
 
-  // 从后端加载服务数据
+  // Load service data from backend
   useEffect(() => {
     const fetchServices = async () => {
       try {
         const servicesData = await getServices();
         setServices(servicesData);
       } catch (err) {
-        console.error("获取服务失败:", err);
-        setError("无法加载服务列表 | Unable to load services");
+        console.error("Failed to fetch services:", err);
+        setError("Unable to load service list");
       }
     };
     fetchServices();
   }, []);
 
-  // 从后端加载预订数据
+  // Load booking data from backend
   useEffect(() => {
     const fetchBookings = async () => {
       try {
         setLoading(true);
         const bookingsData = await getBookings();
-        // 转换后端数据格式为前端使用的格式
+        // Convert backend data format to frontend format
         const formattedBookings = bookingsData.map((booking, index) => {
-          // 从 bookingId 中提取数字部分作为显示 ID
-          // bookingId 格式: BK{timestamp}{random}，提取所有数字并取后6-8位作为简短ID
+          // Extract numeric part from bookingId as display ID
+          // bookingId format: BK{timestamp}{random}, extract all numbers and take last 6-8 digits as short ID
           const allNumbers = booking.bookingId.replace(/\D/g, "");
-          // 使用时间戳的后6位，如果不够则使用所有数字的后6位
+          // Use last 6 digits of timestamp, if not enough use last 6 digits of all numbers
           const numericId =
             allNumbers.length > 6
               ? allNumbers.slice(-6)
               : allNumbers || (index + 1).toString();
-          // 处理日期：如果是字符串（YYYY-MM-DD），转换为 Date 对象
+          // Process date: if string (YYYY-MM-DD), convert to Date object
           let bookingDate;
           if (typeof booking.selectedDate === "string") {
-            // 如果是 YYYY-MM-DD 格式，直接创建本地日期
+            // If YYYY-MM-DD format, create local date directly
             if (booking.selectedDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
               const [year, month, day] = booking.selectedDate
                 .split("-")
                 .map(Number);
               bookingDate = new Date(year, month - 1, day);
             } else {
-              // 如果是 ISO 字符串，解析为本地日期
+              // If ISO string, parse as local date
               bookingDate = new Date(booking.selectedDate);
             }
           } else {
@@ -80,25 +80,25 @@ function AdminPage() {
           }
 
           return {
-            id: booking.bookingId, // 保留完整 ID 用于 key
-            displayId: numericId, // 用于显示的简化数字 ID
+            id: booking.bookingId, // Keep full ID for key
+            displayId: numericId, // Simplified numeric ID for display
             customerName: booking.name,
-            name: booking.name, // 也保留 name 字段用于显示
+            name: booking.name, // Also keep name field for display
             phone: booking.phone,
             email: booking.email,
             service: booking.service,
             date: bookingDate,
             time: booking.selectedTime,
-            selectedTime: booking.selectedTime, // 确保包含 selectedTime
-            startTime: booking.selectedTime, // 也作为 startTime 的别名
+            selectedTime: booking.selectedTime, // Ensure selectedTime is included
+            startTime: booking.selectedTime, // Also as alias for startTime
             status: booking.status,
             createdAt: new Date(booking.createdAt),
           };
         });
         setBookings(formattedBookings);
       } catch (err) {
-        console.error("获取预订失败:", err);
-        setError("无法加载预订列表 | Unable to load bookings");
+        console.error("Failed to fetch bookings:", err);
+        setError("Unable to load booking list");
       } finally {
         setLoading(false);
       }
@@ -106,15 +106,15 @@ function AdminPage() {
     fetchBookings();
   }, []);
 
-  // 从后端加载屏蔽日期数据
+  // Load blocked dates data from backend
   useEffect(() => {
     const fetchBlockedDates = async () => {
       try {
         const blockedDatesData = await getBlockedDates();
         setBlockedDates(blockedDatesData);
       } catch (err) {
-        console.error("获取屏蔽日期失败:", err);
-        // 不显示错误，因为这是可选功能
+        console.error("Failed to fetch blocked dates:", err);
+        // Don't show error, as this is an optional feature
       }
     };
     fetchBlockedDates();
@@ -126,35 +126,29 @@ function AdminPage() {
 
   const handleSaveService = async () => {
     try {
-      // 保存到后端
+      // Save to backend
       const savedService = await saveService(editingService);
 
-      // 更新本地状态
+      // Update local state
       if (editingService.id) {
-        // 更新现有服务
+        // Update existing service
         setServices(
           services.map((s) => (s.id === savedService.id ? savedService : s))
         );
       } else {
-        // 添加新服务
+        // Add new service
         setServices([...services, savedService]);
         setShowAddService(false);
       }
       setEditingService(null);
     } catch (err) {
-      console.error("保存服务失败:", err);
-      alert(
-        "保存服务失败，请稍后重试。| Failed to save service, please try again."
-      );
+      console.error("Failed to save service:", err);
+      alert("Failed to save service, please try again.");
     }
   };
 
   const handleDeleteService = (id) => {
-    if (
-      window.confirm(
-        "确定要删除这个服务吗？| Are you sure you want to delete this service?"
-      )
-    ) {
+    if (window.confirm("Are you sure you want to delete this service?")) {
       setServices(services.filter((s) => s.id !== id));
     }
   };
@@ -178,36 +172,34 @@ function AdminPage() {
   const handleUnblockDate = async (dateStr) => {
     try {
       await deleteBlockedDate(dateStr);
-      // 更新本地状态
+      // Update local state
       const updatedBlockedDates = blockedDates.filter(
         (d) => d.date !== dateStr
       );
       setBlockedDates(updatedBlockedDates);
-      // 重新从后端获取以确保同步
+      // Re-fetch from backend to ensure sync
       const freshData = await getBlockedDates();
       setBlockedDates(freshData);
     } catch (err) {
-      console.error("删除屏蔽日期失败:", err);
-      alert(
-        "删除屏蔽日期失败，请稍后重试。| Failed to unblock date, please try again."
-      );
+      console.error("Failed to delete blocked date:", err);
+      alert("Failed to unblock date, please try again.");
     }
   };
 
   const handleUnblockTime = async (dateStr, time, allSlots = []) => {
     try {
-      // 确保时间格式是 "HH:MM" 格式
+      // Ensure time format is "HH:MM"
       const normalizedTime = time.includes(":")
         ? time
         : `${time.padStart(2, "0")}:00`;
 
       const existingBlock = blockedDates.find((b) => b.date === dateStr);
 
-      // 如果整个日期被屏蔽（times为空数组），需要转换为部分屏蔽
+      // If entire date is blocked (times is empty array), need to convert to partial block
       if (existingBlock && existingBlock.times.length === 0) {
-        // 生成所有时间槽，然后移除被取消的时间槽
+        // Generate all time slots, then remove cancelled time slot
         if (allSlots.length === 0) {
-          // 如果没有提供 allSlots，尝试从日期字符串创建 Date 对象
+          // If allSlots not provided, try to create Date object from date string
           const blockedDate = new Date(dateStr + "T00:00:00");
           if (!isNaN(blockedDate.getTime())) {
             const slots3h = generateDefaultTimeSlots(blockedDate, 3);
@@ -215,31 +207,29 @@ function AdminPage() {
             allSlots = [...new Set([...slots3h, ...slots5h])].sort();
           }
         }
-        // 移除被取消的时间槽
+        // Remove cancelled time slot
         const remainingTimes = allSlots.filter(
           (slot) => slot !== normalizedTime
         );
-        // 更新为部分屏蔽
+        // Update to partial block
         await saveBlockedDate({ date: dateStr, times: remainingTimes });
       } else {
-        // 正常情况：删除单个时间槽
+        // Normal case: delete single time slot
         await deleteBlockedTime(dateStr, normalizedTime);
       }
 
-      // 重新从后端获取以确保同步
+      // Re-fetch from backend to ensure sync
       const freshData = await getBlockedDates();
       setBlockedDates(freshData);
     } catch (err) {
-      console.error("删除时间段屏蔽失败:", err);
-      alert(
-        "删除时间段屏蔽失败，请稍后重试。| Failed to unblock time, please try again."
-      );
+      console.error("Failed to delete blocked time slot:", err);
+      alert("Failed to unblock time, please try again.");
     }
   };
 
   const handleBlockTime = async (dateStr, time, allSlots = []) => {
     try {
-      // 确保时间格式是 "HH:MM" 格式
+      // Ensure time format is "HH:MM"
       const normalizedTime = time.includes(":")
         ? time
         : `${time.padStart(2, "0")}:00`;
@@ -249,29 +239,29 @@ function AdminPage() {
       let newTimes;
 
       if (existingBlock) {
-        // 如果整个日期已被屏蔽（times为空数组），先取消全屏蔽，添加单个时间槽
+        // If entire date is already blocked (times is empty array), first unblock full day, add single time slot
         if (existingBlock.times.length === 0) {
           newTimes = [normalizedTime];
         } else {
-          // 如果日期已存在，添加时间段
+          // If date exists, add time slot
           if (!existingBlock.times.includes(normalizedTime)) {
             newTimes = [...existingBlock.times, normalizedTime];
           } else {
-            // 如果时间槽已存在，直接返回
+            // If time slot already exists, return directly
             return;
           }
         }
       } else {
-        // 如果日期不存在，创建新记录
+        // If date doesn't exist, create new record
         newTimes = [normalizedTime];
       }
 
-      // 检查是否所有时间槽都被屏蔽
+      // Check if all time slots are blocked
       const allSlotsSet = new Set(allSlots);
       const blockedTimesSet = new Set(newTimes);
       const allBlocked = allSlots.every((slot) => blockedTimesSet.has(slot));
 
-      // 如果所有时间槽都被屏蔽，转换为屏蔽一整天（times为空数组）
+      // If all time slots are blocked, convert to blocking entire day (times is empty array)
       if (allBlocked && allSlots.length > 0) {
         updatedBlockedDate = { date: dateStr, times: [] };
       } else {
@@ -280,18 +270,16 @@ function AdminPage() {
 
       await saveBlockedDate(updatedBlockedDate);
 
-      // 重新从后端获取以确保同步
+      // Re-fetch from backend to ensure sync
       const freshData = await getBlockedDates();
       setBlockedDates(freshData);
     } catch (err) {
-      console.error("保存时间段屏蔽失败:", err);
-      alert(
-        "保存时间段屏蔽失败，请稍后重试。| Failed to block time, please try again."
-      );
+      console.error("Failed to save blocked time slot:", err);
+      alert("Failed to block time, please try again.");
     }
   };
 
-  // 将日期对象转换为本地日期字符串 (YYYY-MM-DD)，避免时区问题
+  // Convert date object to local date string (YYYY-MM-DD) to avoid timezone issues
   const formatDateToLocalString = (date) => {
     if (!date) return "";
     const year = date.getFullYear();
@@ -310,7 +298,7 @@ function AdminPage() {
   };
 
   const formatTime = (time) => {
-    // 使用24小时制显示，和 TimeSelectionPage 保持一致
+    // Use 24-hour format, consistent with TimeSelectionPage
     return time;
   };
 
@@ -318,17 +306,17 @@ function AdminPage() {
     const blocked = blockedDates.find((b) => b.date === dateStr);
     if (!blocked) return [];
 
-    // 如果整个日期被屏蔽（times为空数组），返回所有时间槽
+    // If entire date is blocked (times is empty array), return all time slots
     if (blocked.times.length === 0) {
       return allSlots;
     }
 
-    // 确保返回的时间格式是 "HH:MM" 格式
+    // Ensure returned time format is "HH:MM"
     return blocked.times.map((time) => {
       if (time.includes(":")) {
         return time;
       }
-      // 如果不是 "HH:MM" 格式，尝试转换
+      // If not "HH:MM" format, try to convert
       return `${time.padStart(2, "0")}:00`;
     });
   };
@@ -355,22 +343,20 @@ function AdminPage() {
 
   const handleBlockFullDate = async (date) => {
     try {
-      // 使用本地日期字符串，避免时区问题
+      // Use local date string to avoid timezone issues
       const dateStr = formatDateToLocalString(date);
-      // 屏蔽整个日期（times 为空数组表示整个日期被屏蔽）
+      // Block entire date (times as empty array means entire date is blocked)
       const existingBlock = blockedDates.find((b) => b.date === dateStr);
       if (!existingBlock) {
         const newBlockedDate = { date: dateStr, times: [] };
         await saveBlockedDate(newBlockedDate);
-        // 重新从后端获取以确保同步
+        // Re-fetch from backend to ensure sync
         const freshData = await getBlockedDates();
         setBlockedDates(freshData);
       }
     } catch (err) {
-      console.error("保存屏蔽日期失败:", err);
-      alert(
-        "保存屏蔽日期失败，请稍后重试。| Failed to block date, please try again."
-      );
+      console.error("Failed to save blocked date:", err);
+      alert("Failed to block date, please try again.");
     }
   };
 
@@ -423,7 +409,7 @@ function AdminPage() {
               </button>
             </div>
 
-            {/* 按分类组织服务 */}
+            {/* Organize services by category */}
             {(() => {
               const servicesByCategory = {
                 本甲: services.filter((s) => s.category === "本甲"),
@@ -537,7 +523,7 @@ function AdminPage() {
                 .map((b) => b.date)}
             />
 
-            {/* 选中日期的时间段管理 */}
+            {/* Time slot management for selected date */}
             {selectedBlockDate && (
               <div className={styles.timeBlockSection}>
                 <h3 className={styles.timeBlockTitle}>
@@ -603,7 +589,7 @@ function AdminPage() {
                       );
                       const isBooked = isBooked3h || isBooked5h;
 
-                      // 查找该时间槽的预订信息（用于显示）
+                      // Find booking info for this time slot (for display)
                       const bookingAtTime = dateBookings.find((booking) => {
                         const bookingTime =
                           booking.selectedTime ||
@@ -625,10 +611,10 @@ function AdminPage() {
                           } ${isBooked ? styles.booked : ""}`}
                           onClick={() => {
                             if (isBooked) return;
-                            // 确保存储的时间格式是 "HH:MM"
+                            // Ensure stored time format is "HH:MM"
                             const timeToStore = normalizedTime;
                             if (isBlocked) {
-                              // 从全天屏蔽中取消时间槽时，需要传入 allSlots
+                              // When unblocking time slot from full-day block, need to pass allSlots
                               handleUnblockTime(
                                 dateStr,
                                 timeToStore,

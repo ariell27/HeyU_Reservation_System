@@ -68,9 +68,9 @@ export const sendConfirmationEmail = async (bookingData) => {
 };
 
 /**
- * 生成邮件内容
- * @param {Object} bookingData - 预约数据
- * @returns {string} 邮件HTML内容
+ * Generate email content
+ * @param {Object} bookingData - Booking data
+ * @returns {string} Email HTML content
  */
     const generateEmailContent = (bookingData) => {
       const { service, selectedDate, selectedTime, selectedStaff, name, email, phone, wechat } = bookingData;
@@ -118,57 +118,57 @@ export const sendConfirmationEmail = async (bookingData) => {
           <div class="logo">HeyU禾屿</div>
         </div>
         <div class="content">
-          <h2>预约确认</h2>
-          <p>感谢您选择HeyU禾屿！您的预约已成功确认。</p>
+          <h2>Booking Confirmation</h2>
+          <p>Thank you for choosing HeyU! Your booking has been successfully confirmed.</p>
           
           <div class="detail-item">
-            <span class="label">服务：</span>
+            <span class="label">Service:</span>
             <span class="value">${service.nameCn} | ${service.nameEn}</span>
           </div>
           <div class="detail-item">
-            <span class="label">员工：</span>
+            <span class="label">Staff:</span>
             <span class="value">${selectedStaff.name}</span>
           </div>
           <div class="detail-item">
-            <span class="label">日期：</span>
+            <span class="label">Date:</span>
             <span class="value">${formatDate(selectedDate)}</span>
           </div>
           <div class="detail-item">
-            <span class="label">时间：</span>
+            <span class="label">Time:</span>
             <span class="value">${formatTime(selectedTime)}</span>
           </div>
           <div class="detail-item">
-            <span class="label">时长：</span>
+            <span class="label">Duration:</span>
             <span class="value">${service.duration}</span>
           </div>
           <div class="detail-item">
-            <span class="label">价格：</span>
+            <span class="label">Price:</span>
             <span class="value">${service.price}</span>
           </div>
           <div class="detail-item">
-            <span class="label">姓名：</span>
+            <span class="label">Name:</span>
             <span class="value">${name || 'N/A'}</span>
           </div>
           <div class="detail-item">
-            <span class="label">电话：</span>
+            <span class="label">Phone:</span>
             <span class="value">${phone}</span>
           </div>
           <div class="detail-item">
-            <span class="label">邮箱：</span>
+            <span class="label">Email:</span>
             <span class="value">${email}</span>
           </div>
           ${wechat ? `<div class="detail-item">
-            <span class="label">微信：</span>
+            <span class="label">WeChat:</span>
             <span class="value">${wechat}</span>
           </div>` : ''}
           
           <p style="margin-top: 20px;">
-            我们会在预约前24小时通过电话或邮件与您确认。<br>
-            如有任何问题，请随时联系我们。
+            We will contact you 24 hours before your appointment via phone or email to confirm.<br>
+            If you have any questions, please feel free to contact us.
           </p>
         </div>
         <div class="footer">
-          <p>此邮件由系统自动发送，请勿回复。</p>
+          <p>This is an automated email, please do not reply.</p>
         </div>
       </div>
     </body>
