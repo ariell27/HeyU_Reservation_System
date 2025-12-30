@@ -23,7 +23,12 @@ app.get('/', (req, res) => {
       health: '/health',
       bookings: '/api/bookings',
       services: '/api/services',
-      blockedDates: '/api/blocked-dates'
+      blockedDates: '/api/blocked-dates',
+      email: {
+        check: '/api/email/check',
+        test: '/api/email/test?email=your@email.com',
+        sendConfirmation: 'POST /api/email/send-confirmation'
+      }
     }
   });
 });

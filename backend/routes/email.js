@@ -79,25 +79,55 @@ router.get('/test', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Test email failed',
-      error: error.message
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
+});
+
+// GET /api/email/check - Check email configuration without sending
+router.get('/check', (req, res) => {
+  const config = {
+    SMTP_HOST: process.env.SMTP_HOST ? '✅ Set' : '❌ Missing',
+    SMTP_PORT: process.env.SMTP_PORT || '587 (default)',
+    SMTP_USER: process.env.SMTP_USER ? '✅ Set' : '❌ Missing',
+    SMTP_PASS: process.env.SMTP_PASS ? '✅ Set (hidden)' : '❌ Missing',
+    SMTP_FROM: process.env.SMTP_FROM || process.env.SMTP_USER || 'Not set',
+    SMTP_SERVICE: process.env.SMTP_SERVICE || 'gmail (default)',
+    SMTP_SECURE: process.env.SMTP_SECURE || 'false (default)',
+  };
+
+  const allSet = config.SMTP_HOST.includes('✅') && 
+                 config.SMTP_USER.includes('✅') && 
+                 config.SMTP_PASS.includes('✅');
+
+  res.json({
+    configured: allSet,
+    config: config,
+    message: allSet 
+      ? 'Email service is configured. Use /api/email/test to send a test email.'
+      : 'Email service is not fully configured. Please set missing environment variables.'
+  });
 });
 
 // POST /api/email/send-confirmation - Send confirmation email manually
 router.post('/send-confirmation', async (req, res) => {
   try {
     console.log('=== SEND CONFIRMATION EMAIL REQUEST ===');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    
     const { bookingId, bookingData } = req.body;
 
     let booking = bookingData;
 
     // If bookingId is provided, fetch booking from database
     if (bookingId && !bookingData) {
+      console.log('Fetching booking by ID:', bookingId);
       const bookings = await readBookings();
       booking = bookings.find(b => b.bookingId === bookingId);
       
       if (!booking) {
+        console.log('Booking not found:', bookingId);
         return res.status(404).json({
           success: false,
           message: 'Booking not found'
@@ -106,16 +136,18 @@ router.post('/send-confirmation', async (req, res) => {
     }
 
     if (!booking) {
+      console.log('ERROR: No booking data provided');
       return res.status(400).json({
         success: false,
         message: 'Booking data or bookingId is required'
       });
     }
 
-    console.log('Sending email for booking:', booking.bookingId || 'N/A');
+    console.log('Sending email for booking:', booking.bookingId || 'N/A', 'to:', booking.email);
+    
     // Send email
     const result = await sendConfirmationEmail(booking);
-    console.log('Email send result:', result);
+    console.log('Email send result:', JSON.stringify(result, null, 2));
 
     if (result.success) {
       res.json({
@@ -127,11 +159,14 @@ router.post('/send-confirmation', async (req, res) => {
       res.status(500).json({
         success: false,
         message: 'Failed to send email',
-        error: result.error || result.message
+        error: result.error || result.message,
+        details: result
       });
     }
   } catch (error) {
+    console.error('=== SEND EMAIL ERROR ===');
     console.error('Failed to send confirmation email:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Server error, unable to send email',
