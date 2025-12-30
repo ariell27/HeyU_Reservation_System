@@ -1,79 +1,43 @@
 /**
- * 邮件发送服务
- * 在实际项目中，这应该调用后端API或第三方邮件服务（如EmailJS、SendGrid等）
+ * Email service
+ * Sends confirmation emails via backend API
  */
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 /**
- * 发送确认邮件
- * @param {Object} bookingData - 预约数据
- * @returns {Promise<boolean>} 是否发送成功
+ * Send confirmation email
+ * @param {Object} bookingData - Booking data
+ * @returns {Promise<boolean>} Whether email was sent successfully
  */
 export const sendConfirmationEmail = async (bookingData) => {
   try {
-    // 方案1: 调用后端API（推荐用于生产环境）
-    const response = await fetch('/api/send-confirmation-email', {
+    // Call backend API to send email
+    const response = await fetch(`${API_URL}/api/email/send-confirmation`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        to: bookingData.email,
-        phone: bookingData.phone,
-        service: bookingData.service,
-        date: bookingData.selectedDate,
-        time: bookingData.selectedTime,
-        staff: bookingData.selectedStaff,
+        bookingData: bookingData,
       }),
     });
 
     if (response.ok) {
+      const data = await response.json();
+      console.log('Email sent successfully:', data);
       return true;
     } else {
-      console.error('邮件发送失败:', await response.text());
+      const errorData = await response.json();
+      console.error('Failed to send email:', errorData);
+      // Don't throw error, just log it - email failure shouldn't block booking
       return false;
     }
   } catch (error) {
-    // 方案2: 如果后端API不可用，可以使用EmailJS等第三方服务
-    // 这里提供一个使用EmailJS的示例（需要先安装 @emailjs/browser）
-    /*
-    import emailjs from '@emailjs/browser';
-    
-    const templateParams = {
-      to_email: bookingData.email,
-      to_phone: bookingData.phone,
-      service_name: `${bookingData.service.nameCn} | ${bookingData.service.nameEn}`,
-      date: formatDate(bookingData.selectedDate),
-      time: formatTime(bookingData.selectedTime),
-      staff_name: bookingData.selectedStaff.name,
-      price: bookingData.service.price,
-    };
-
-    try {
-      await emailjs.send(
-        'YOUR_SERVICE_ID',
-        'YOUR_TEMPLATE_ID',
-        templateParams,
-        'YOUR_PUBLIC_KEY'
-      );
-      return true;
-    } catch (error) {
-      console.error('EmailJS发送失败:', error);
-      return false;
-    }
-    */
-
-    // 开发环境：模拟邮件发送
-    console.log('模拟发送确认邮件:', {
-      to: bookingData.email,
-      subject: 'HeyU禾屿 - 预约确认',
-      htmlContent: generateEmailContent(bookingData),
-    });
-
-    // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // 在开发环境中，我们假设总是成功
-    return true;
+    // If backend API is not available, just log and return false
+    // Email sending is handled by backend automatically when booking is created
+    console.warn('Email service unavailable:', error);
+    return false;
   }
 };
 

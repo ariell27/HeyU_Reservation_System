@@ -3,6 +3,7 @@ import cors from 'cors';
 import bookingsRouter from './routes/bookings.js';
 import servicesRouter from './routes/services.js';
 import blockedDatesRouter from './routes/blockedDates.js';
+import emailRouter from './routes/email.js';
 import { initRedisClient, testRedisConnection } from './utils/redis.js';
 
 const app = express();
@@ -36,6 +37,7 @@ app.get('/health', (req, res) => {
 app.use('/api/bookings', bookingsRouter);
 app.use('/api/services', servicesRouter);
 app.use('/api/blocked-dates', blockedDatesRouter);
+app.use('/api/email', emailRouter);
 
 // 404 handler
 app.use((req, res) => {

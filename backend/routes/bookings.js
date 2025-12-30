@@ -5,6 +5,7 @@ import {
   generateBookingId,
   validateBookingData
 } from '../utils/bookingUtils.js';
+import { sendConfirmationEmail } from '../utils/emailUtils.js';
 
 const router = express.Router();
 
@@ -63,6 +64,15 @@ router.post('/', async (req, res) => {
 
     // Save to Redis
     await saveBookings(bookings);
+
+    // Send confirmation email (don't wait for it, send in background)
+    sendConfirmationEmail({
+      ...newBooking,
+      bookingId: newBooking.bookingId
+    }).catch(error => {
+      console.error('Failed to send confirmation email:', error);
+      // Don't fail the booking creation if email fails
+    });
 
     // Return success response
     res.status(201).json({
