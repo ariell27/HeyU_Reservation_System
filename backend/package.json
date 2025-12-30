@@ -2,11 +2,11 @@
   "name": "heyu-backend",
   "version": "1.0.0",
   "description": "HeyU Nail Appointment System Backend",
-  "main": "server.js",
+  "main": "api/index.js",
   "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
+    "start": "node api/index.js",
+    "dev": "node --watch api/index.js",
     "migrate": "node scripts/migrate-to-redis.js"
   },
   "keywords": [

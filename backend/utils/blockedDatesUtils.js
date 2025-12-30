@@ -39,10 +39,12 @@ export async function saveBlockedDates(blockedDates) {
       blockedDates: blockedDates,
       lastUpdated: new Date().toISOString()
     };
+    // Vercel KV can handle objects directly, but JSON.stringify is safer
     await client.set(REDIS_KEYS.BLOCKED_DATES, JSON.stringify(data));
+    console.log(`✅ Saved ${blockedDates.length} blocked dates to Redis`);
     return true;
   } catch (error) {
-    console.error('Failed to save blocked dates data:', error);
+    console.error('❌ Failed to save blocked dates data:', error);
     throw error;
   }
 }

@@ -39,10 +39,12 @@ export async function saveServices(services) {
       services: services,
       lastUpdated: new Date().toISOString()
     };
+    // Vercel KV can handle objects directly, but JSON.stringify is safer
     await client.set(REDIS_KEYS.SERVICES, JSON.stringify(data));
+    console.log(`✅ Saved ${services.length} services to Redis`);
     return true;
   } catch (error) {
-    console.error('Failed to save service data:', error);
+    console.error('❌ Failed to save service data:', error);
     throw error;
   }
 }
