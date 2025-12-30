@@ -3,7 +3,9 @@
  * Sends confirmation emails via backend API
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// Get API URL and remove trailing slash
+const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = rawApiUrl.replace(/\/+$/, ''); // Remove trailing slashes
 
 // Debug: Log API URL
 if (typeof window !== 'undefined') {

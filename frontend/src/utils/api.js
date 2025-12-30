@@ -3,7 +3,9 @@
  * 统一管理所有后端 API 调用
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// Get API URL and remove trailing slash
+const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = rawApiUrl.replace(/\/+$/, ''); // Remove trailing slashes
 
 // Debug: Log API URL on module load
 console.log('🔗 API Configuration:', {
@@ -27,11 +29,24 @@ export async function getServices(category = null) {
     console.log('📡 Fetching services from:', url);
     console.log('📡 API_URL:', API_URL);
     console.log('📡 VITE_API_URL:', import.meta.env.VITE_API_URL);
+    console.log('📡 Full URL:', url);
     
-    const response = await fetch(url);
+    // Add timeout and better error handling
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    clearTimeout(timeoutId);
     
     console.log('📡 Response status:', response.status);
     console.log('📡 Response ok:', response.ok);
+    console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -49,11 +64,22 @@ export async function getServices(category = null) {
   } catch (error) {
     console.error('❌ 获取服务列表失败:', error);
     console.error('❌ Error details:', {
+      name: error.name,
       message: error.message,
       stack: error.stack,
       API_URL: API_URL,
-      VITE_API_URL: import.meta.env.VITE_API_URL
+      VITE_API_URL: import.meta.env.VITE_API_URL,
+      isNetworkError: error.name === 'TypeError' && error.message.includes('fetch'),
+      isAbortError: error.name === 'AbortError'
     });
+    
+    // Provide more helpful error messages
+    if (error.name === 'AbortError') {
+      throw new Error('请求超时，请检查网络连接或后端服务是否正常运行');
+    } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error(`无法连接到后端服务器。请检查：\n1. VITE_API_URL 是否正确设置: ${API_URL}\n2. 后端服务是否正常运行\n3. 网络连接是否正常`);
+    }
+    
     throw error;
   }
 }
