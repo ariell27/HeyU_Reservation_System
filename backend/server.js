@@ -13,6 +13,20 @@ app.use(cors()); // Enable CORS
 app.use(express.json()); // Parse JSON request body
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded request body
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    message: 'HeyU backend service is running',
+    endpoints: {
+      health: '/health',
+      bookings: '/api/bookings',
+      services: '/api/services',
+      blockedDates: '/api/blocked-dates'
+    }
+  });
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'HeyU backend service is running' });
@@ -41,12 +55,8 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
-app.listen(PORT, async () => {
-  console.log(`🚀 HeyU backend service started`);
-  console.log(`📡 Server running on http://localhost:${PORT}`);
-  
-  // Initialize Redis connection
+// Initialize Redis connection on startup
+(async () => {
   try {
     await initRedisClient();
     // Test Redis connection
@@ -60,4 +70,15 @@ app.listen(PORT, async () => {
     console.warn(`⚠️  Redis initialization failed:`, error.message);
     console.warn(`⚠️  Please check environment variables`);
   }
-});
+})();
+
+// Start server (only in local development)
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 HeyU backend service started`);
+    console.log(`📡 Server running on http://localhost:${PORT}`);
+  });
+}
+
+// Export app for Vercel serverless functions
+export default app;
