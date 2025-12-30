@@ -5,6 +5,14 @@
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
+// Debug: Log API URL on module load
+console.log('🔗 API Configuration:', {
+  VITE_API_URL: import.meta.env.VITE_API_URL,
+  API_URL: API_URL,
+  mode: import.meta.env.MODE,
+  isProduction: import.meta.env.PROD
+});
+
 /**
  * 获取所有服务
  * @param {string} category - 可选，按分类筛选

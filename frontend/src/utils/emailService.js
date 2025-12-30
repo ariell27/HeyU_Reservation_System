@@ -5,6 +5,11 @@
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
+// Debug: Log API URL
+if (typeof window !== 'undefined') {
+  console.log('📧 Email Service API_URL:', API_URL);
+}
+
 /**
  * Send confirmation email
  * @param {Object} bookingData - Booking data
