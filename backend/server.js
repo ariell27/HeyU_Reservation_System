@@ -3,49 +3,61 @@ import cors from 'cors';
 import bookingsRouter from './routes/bookings.js';
 import servicesRouter from './routes/services.js';
 import blockedDatesRouter from './routes/blockedDates.js';
+import { initRedisClient, testRedisConnection } from './utils/redis.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// 中间件
-app.use(cors()); // 允许跨域请求
-app.use(express.json()); // 解析 JSON 请求体
-app.use(express.urlencoded({ extended: true })); // 解析 URL 编码的请求体
+// Middleware
+app.use(cors()); // Enable CORS
+app.use(express.json()); // Parse JSON request body
+app.use(express.urlencoded({ extended: true })); // Parse URL-encoded request body
 
-// 健康检查端点
+// Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', message: 'HeyU 后端服务运行正常' });
+  res.json({ status: 'ok', message: 'HeyU backend service is running' });
 });
 
-// API 路由
+// API routes
 app.use('/api/bookings', bookingsRouter);
 app.use('/api/services', servicesRouter);
 app.use('/api/blocked-dates', blockedDatesRouter);
 
-// 404 处理
+// 404 handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    message: '未找到请求的资源'
+    message: 'Resource not found'
   });
 });
 
-// 错误处理中间件
+// Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('服务器错误:', err);
+  console.error('Server error:', err);
   res.status(500).json({
     success: false,
-    message: '服务器内部错误',
-    error: process.env.NODE_ENV === 'development' ? err.message : '内部服务器错误'
+    message: 'Internal server error',
+    error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
   });
 });
 
-// 启动服务器
-app.listen(PORT, () => {
-  console.log(`🚀 HeyU 后端服务已启动`);
-  console.log(`📡 服务器运行在 http://localhost:${PORT}`);
-  console.log(`💾 预订数据存储: backend/data/bookings.json`);
-  console.log(`📋 服务数据存储: backend/data/services.json`);
-  console.log(`🚫 屏蔽日期存储: backend/data/blockedDates.json`);
+// Start server
+app.listen(PORT, async () => {
+  console.log(`🚀 HeyU backend service started`);
+  console.log(`📡 Server running on http://localhost:${PORT}`);
+  
+  // Initialize Redis connection
+  try {
+    await initRedisClient();
+    // Test Redis connection
+    const redisConnected = await testRedisConnection();
+    if (redisConnected) {
+      console.log(`💾 Data storage: Redis`);
+    } else {
+      console.warn(`⚠️  Redis connection test failed, please check environment variables`);
+    }
+  } catch (error) {
+    console.warn(`⚠️  Redis initialization failed:`, error.message);
+    console.warn(`⚠️  Please check environment variables`);
+  }
 });
-

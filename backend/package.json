@@ -1,12 +1,13 @@
 {
   "name": "heyu-backend",
   "version": "1.0.0",
-  "description": "HeyU 美甲预约系统后端",
+  "description": "HeyU Nail Appointment System Backend",
   "main": "server.js",
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "migrate": "node scripts/migrate-to-redis.js"
   },
   "keywords": [
     "booking",

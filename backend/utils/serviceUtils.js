@@ -1,62 +1,60 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { getRedisClientAsync, REDIS_KEYS } from './redis.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const SERVICES_FILE = path.join(DATA_DIR, 'services.json');
-
-// 确保数据目录存在
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-}
-
-// 读取所有服务
-export function readServices() {
+// Read all services
+export async function readServices() {
   try {
-    ensureDataDir();
-    if (!fs.existsSync(SERVICES_FILE)) {
-      // 如果文件不存在，返回空数组
+    const client = await getRedisClientAsync();
+    const data = await client.get(REDIS_KEYS.SERVICES);
+    
+    if (data === null) {
+      // If no data in Redis, return empty array
       return [];
     }
-    const data = fs.readFileSync(SERVICES_FILE, 'utf8');
-    const json = JSON.parse(data);
-    return json.services || [];
+    
+    // Parse JSON string
+    const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+    
+    // If stored in old format (object with services field), extract services array
+    if (typeof parsed === 'object' && parsed.services) {
+      return parsed.services;
+    }
+    
+    // If directly stored as array, return directly
+    if (Array.isArray(parsed)) {
+      return parsed;
+    }
+    
+    return [];
   } catch (error) {
-    console.error('读取服务数据失败:', error);
+    console.error('Failed to read service data:', error);
     return [];
   }
 }
 
-// 保存所有服务
-export function saveServices(services) {
+// Save all services
+export async function saveServices(services) {
   try {
-    ensureDataDir();
+    const client = await getRedisClientAsync();
     const data = {
       services: services,
       lastUpdated: new Date().toISOString()
     };
-    fs.writeFileSync(SERVICES_FILE, JSON.stringify(data, null, 2));
+    await client.set(REDIS_KEYS.SERVICES, JSON.stringify(data));
     return true;
   } catch (error) {
-    console.error('保存服务数据失败:', error);
+    console.error('Failed to save service data:', error);
     throw error;
   }
 }
 
-// 根据ID获取服务
-export function getServiceById(serviceId) {
-  const services = readServices();
+// Get service by ID
+export async function getServiceById(serviceId) {
+  const services = await readServices();
   return services.find(service => service.id === serviceId);
 }
 
-// 根据分类获取服务
-export function getServicesByCategory(category) {
-  const services = readServices();
+// Get services by category
+export async function getServicesByCategory(category) {
+  const services = await readServices();
   return services.filter(service => service.category === category);
 }
-

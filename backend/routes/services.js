@@ -8,15 +8,15 @@ import {
 
 const router = express.Router();
 
-// GET /api/services - 获取所有服务
-router.get('/', (req, res) => {
+// GET /api/services - Get all services
+router.get('/', async (req, res) => {
   try {
     const { category } = req.query;
-    let services = readServices();
+    let services = await readServices();
 
-    // 按分类筛选
+    // Filter by category
     if (category) {
-      services = getServicesByCategory(category);
+      services = await getServicesByCategory(category);
     }
 
     res.json({
@@ -25,25 +25,25 @@ router.get('/', (req, res) => {
       services: services
     });
   } catch (error) {
-    console.error('获取服务列表失败:', error);
+    console.error('Failed to get services list:', error);
     res.status(500).json({
       success: false,
-      message: '服务器错误，无法获取服务列表',
+      message: 'Server error, unable to get services list',
       error: error.message
     });
   }
 });
 
-// GET /api/services/:serviceId - 根据ID获取单个服务
-router.get('/:serviceId', (req, res) => {
+// GET /api/services/:serviceId - Get single service by ID
+router.get('/:serviceId', async (req, res) => {
   try {
     const { serviceId } = req.params;
-    const service = getServiceById(parseInt(serviceId));
+    const service = await getServiceById(parseInt(serviceId));
 
     if (!service) {
       return res.status(404).json({
         success: false,
-        message: '未找到指定的服务'
+        message: 'Service not found'
       });
     }
 
@@ -52,36 +52,36 @@ router.get('/:serviceId', (req, res) => {
       service: service
     });
   } catch (error) {
-    console.error('获取服务详情失败:', error);
+    console.error('Failed to get service details:', error);
     res.status(500).json({
       success: false,
-      message: '服务器错误，无法获取服务详情',
+      message: 'Server error, unable to get service details',
       error: error.message
     });
   }
 });
 
-// POST /api/services - 创建或更新服务（管理功能）
-router.post('/', (req, res) => {
+// POST /api/services - Create or update service (admin function)
+router.post('/', async (req, res) => {
   try {
     const serviceData = req.body;
-    const services = readServices();
+    const services = await readServices();
 
-    // 如果提供了ID，则更新现有服务
+    // If ID is provided, update existing service
     if (serviceData.id) {
       const index = services.findIndex(s => s.id === serviceData.id);
       if (index !== -1) {
         services[index] = { ...services[index], ...serviceData };
-        saveServices(services);
+        await saveServices(services);
         return res.json({
           success: true,
-          message: '服务更新成功',
+          message: 'Service updated successfully',
           service: services[index]
         });
       }
     }
 
-    // 创建新服务（自动生成ID）
+    // Create new service (auto-generate ID)
     const newId = services.length > 0 
       ? Math.max(...services.map(s => s.id)) + 1 
       : 1;
@@ -92,22 +92,21 @@ router.post('/', (req, res) => {
     };
 
     services.push(newService);
-    saveServices(services);
+    await saveServices(services);
 
     res.status(201).json({
       success: true,
-      message: '服务创建成功',
+      message: 'Service created successfully',
       service: newService
     });
   } catch (error) {
-    console.error('创建/更新服务失败:', error);
+    console.error('Failed to create/update service:', error);
     res.status(500).json({
       success: false,
-      message: '服务器错误，无法创建/更新服务',
+      message: 'Server error, unable to create/update service',
       error: error.message
     });
   }
 });
 
 export default router;
-
