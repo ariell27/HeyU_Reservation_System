@@ -211,46 +211,112 @@ export function generateEmailContent(bookingData) {
 export async function sendConfirmationEmail(bookingData) {
   try {
     // Check if email service is configured
-    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      console.warn('Email service not configured. Skipping email send.');
-      return { success: false, message: 'Email service not configured' };
+    const smtpHost = process.env.SMTP_HOST;
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS;
+    
+    console.log('📧 Email sending attempt:', {
+      hasHost: !!smtpHost,
+      hasUser: !!smtpUser,
+      hasPass: !!smtpPass,
+      recipient: bookingData.email,
+      bookingId: bookingData.bookingId
+    });
+
+    if (!smtpHost || !smtpUser || !smtpPass) {
+      const missing = [];
+      if (!smtpHost) missing.push('SMTP_HOST');
+      if (!smtpUser) missing.push('SMTP_USER');
+      if (!smtpPass) missing.push('SMTP_PASS');
+      console.warn('❌ Email service not configured. Missing:', missing.join(', '));
+      return { success: false, message: `Email service not configured. Missing: ${missing.join(', ')}` };
     }
 
     const nodemailer = await import('nodemailer');
     
     // Create transporter with Gmail-specific settings
-    const transporter = nodemailer.default.createTransport({
-      service: process.env.SMTP_SERVICE || 'gmail', // Use 'gmail' service for better compatibility
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    const transporterConfig = {
+      service: process.env.SMTP_SERVICE || 'gmail',
+      host: smtpHost || 'smtp.gmail.com',
       port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
+      secure: process.env.SMTP_SECURE === 'true',
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: smtpUser,
+        pass: smtpPass,
       },
-      // Gmail-specific options
       tls: {
-        rejectUnauthorized: false // Allow self-signed certificates if needed
+        rejectUnauthorized: false
       }
+    };
+
+    console.log('📧 Creating transporter with config:', {
+      service: transporterConfig.service,
+      host: transporterConfig.host,
+      port: transporterConfig.port,
+      secure: transporterConfig.secure,
+      user: smtpUser
     });
+
+    const transporter = nodemailer.default.createTransport(transporterConfig);
+
+    // Verify connection
+    try {
+      await transporter.verify();
+      console.log('✅ SMTP connection verified successfully');
+    } catch (verifyError) {
+      console.error('❌ SMTP verification failed:', verifyError.message);
+      return { success: false, error: `SMTP verification failed: ${verifyError.message}` };
+    }
 
     // Email content
     const htmlContent = generateEmailContent(bookingData);
     const subject = `HeyU 禾屿 - Booking Confirmation #${bookingData.bookingId || ''}`;
+    const fromEmail = process.env.SMTP_FROM || smtpUser;
+    const toEmail = bookingData.email;
+
+    console.log('📧 Sending email:', {
+      from: fromEmail,
+      to: toEmail,
+      subject: subject
+    });
 
     // Send email
     const info = await transporter.sendMail({
-      from: `"HeyU 禾屿" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
-      to: bookingData.email,
+      from: `"HeyU 禾屿" <${fromEmail}>`,
+      to: toEmail,
       subject: subject,
       html: htmlContent,
     });
 
-    console.log('Email sent successfully:', info.messageId);
-    return { success: true, messageId: info.messageId };
+    console.log('✅ Email sent successfully:', {
+      messageId: info.messageId,
+      response: info.response,
+      accepted: info.accepted,
+      rejected: info.rejected
+    });
+
+    return { 
+      success: true, 
+      messageId: info.messageId,
+      response: info.response,
+      accepted: info.accepted,
+      rejected: info.rejected
+    };
   } catch (error) {
-    console.error('Failed to send email:', error);
-    return { success: false, error: error.message };
+    console.error('❌ Failed to send email:', {
+      error: error.message,
+      code: error.code,
+      command: error.command,
+      response: error.response,
+      responseCode: error.responseCode,
+      stack: error.stack
+    });
+    return { 
+      success: false, 
+      error: error.message,
+      code: error.code,
+      details: error.response || error.command
+    };
   }
 }
 

@@ -69,8 +69,14 @@ router.post('/', async (req, res) => {
     sendConfirmationEmail({
       ...newBooking,
       bookingId: newBooking.bookingId
+    }).then(result => {
+      if (result.success) {
+        console.log('✅ Confirmation email sent successfully for booking:', newBooking.bookingId);
+      } else {
+        console.error('❌ Failed to send confirmation email for booking:', newBooking.bookingId, result.error || result.message);
+      }
     }).catch(error => {
-      console.error('Failed to send confirmation email:', error);
+      console.error('❌ Error sending confirmation email for booking:', newBooking.bookingId, error);
       // Don't fail the booking creation if email fails
     });
 
