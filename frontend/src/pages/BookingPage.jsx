@@ -14,15 +14,20 @@ function BookingPage() {
     // 从后端 API 获取服务数据
     const fetchServices = async () => {
       try {
+        console.log('🔄 BookingPage: Starting to fetch services...');
         setLoading(true);
         setError(null);
         const servicesData = await getServices();
+        console.log('✅ BookingPage: Services loaded successfully:', servicesData.length);
         setServices(servicesData);
       } catch (err) {
-        console.error("获取服务失败:", err);
-        setError("无法加载服务列表，请稍后重试。| Unable to load services, please try again later.");
+        console.error("❌ BookingPage: Failed to fetch services:", err);
+        console.error("❌ Error message:", err.message);
+        console.error("❌ Error stack:", err.stack);
+        setError(`无法加载服务列表，请稍后重试。| Unable to load services, please try again later.\n错误: ${err.message}`);
       } finally {
         setLoading(false);
+        console.log('🔄 BookingPage: Loading completed');
       }
     };
 

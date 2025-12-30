@@ -24,16 +24,36 @@ export async function getServices(category = null) {
       ? `${API_URL}/api/services?category=${encodeURIComponent(category)}`
       : `${API_URL}/api/services`;
     
+    console.log('📡 Fetching services from:', url);
+    console.log('📡 API_URL:', API_URL);
+    console.log('📡 VITE_API_URL:', import.meta.env.VITE_API_URL);
+    
     const response = await fetch(url);
     
+    console.log('📡 Response status:', response.status);
+    console.log('📡 Response ok:', response.ok);
+    
     if (!response.ok) {
-      throw new Error(`获取服务失败: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('❌ API Error Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      });
+      throw new Error(`获取服务失败: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
+    console.log('✅ Services loaded:', data.services?.length || 0, 'services');
     return data.services || [];
   } catch (error) {
-    console.error('获取服务列表失败:', error);
+    console.error('❌ 获取服务列表失败:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      stack: error.stack,
+      API_URL: API_URL,
+      VITE_API_URL: import.meta.env.VITE_API_URL
+    });
     throw error;
   }
 }
