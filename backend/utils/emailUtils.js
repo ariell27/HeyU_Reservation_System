@@ -209,6 +209,14 @@ export function generateEmailContent(bookingData) {
 
 // Send confirmation email
 export async function sendConfirmationEmail(bookingData) {
+  console.log('=== sendConfirmationEmail CALLED ===');
+  console.log('Time:', new Date().toISOString());
+  console.log('Booking data:', {
+    email: bookingData.email,
+    bookingId: bookingData.bookingId,
+    name: bookingData.name
+  });
+  
   try {
     // Check if email service is configured
     const smtpHost = process.env.SMTP_HOST;
@@ -221,6 +229,14 @@ export async function sendConfirmationEmail(bookingData) {
       hasPass: !!smtpPass,
       recipient: bookingData.email,
       bookingId: bookingData.bookingId
+    });
+    
+    console.log('Environment variables:', {
+      SMTP_HOST: smtpHost || 'NOT SET',
+      SMTP_USER: smtpUser || 'NOT SET',
+      SMTP_PASS: smtpPass ? 'SET (hidden)' : 'NOT SET',
+      SMTP_PORT: process.env.SMTP_PORT || 'NOT SET',
+      SMTP_SERVICE: process.env.SMTP_SERVICE || 'NOT SET'
     });
 
     if (!smtpHost || !smtpUser || !smtpPass) {

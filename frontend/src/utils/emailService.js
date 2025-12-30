@@ -11,9 +11,18 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
  * @returns {Promise<boolean>} Whether email was sent successfully
  */
 export const sendConfirmationEmail = async (bookingData) => {
+  console.log('📧 sendConfirmationEmail called with:', {
+    email: bookingData.email,
+    bookingId: bookingData.bookingId,
+    API_URL: API_URL
+  });
+
   try {
+    const url = `${API_URL}/api/email/send-confirmation`;
+    console.log('📧 Calling email API:', url);
+    
     // Call backend API to send email
-    const response = await fetch(`${API_URL}/api/email/send-confirmation`, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -23,20 +32,30 @@ export const sendConfirmationEmail = async (bookingData) => {
       }),
     });
 
+    console.log('📧 Email API response status:', response.status);
+
     if (response.ok) {
       const data = await response.json();
-      console.log('Email sent successfully:', data);
+      console.log('✅ Email sent successfully:', data);
       return true;
     } else {
-      const errorData = await response.json();
-      console.error('Failed to send email:', errorData);
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      console.error('❌ Failed to send email:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      });
       // Don't throw error, just log it - email failure shouldn't block booking
       return false;
     }
   } catch (error) {
     // If backend API is not available, just log and return false
     // Email sending is handled by backend automatically when booking is created
-    console.warn('Email service unavailable:', error);
+    console.error('❌ Email service error:', {
+      message: error.message,
+      stack: error.stack,
+      API_URL: API_URL
+    });
     return false;
   }
 };

@@ -96,18 +96,30 @@ function CustomerInfoPage() {
           wechat: wechat,
         };
 
-        // 保存预订到后端 (email will be sent automatically by backend)
+        // Save booking to backend (email will be sent automatically by backend)
         const savedBooking = await createBooking(completeBookingData);
-        console.log("Booking saved:", savedBooking);
+        console.log("✅ Booking saved:", savedBooking);
+        console.log("📧 Email is being sent automatically by backend...");
 
-        // Email is sent automatically by backend after booking creation
-        // Optionally send again if needed (backend handles it gracefully)
+        // Backend automatically sends email when booking is created
+        // Optionally send again via email API endpoint as backup (non-blocking)
         sendConfirmationEmail({
           ...completeBookingData,
           bookingId: savedBooking.bookingId,
-        }).catch((err) => {
-          console.warn("Email send failed (non-critical):", err);
-        });
+        })
+          .then((result) => {
+            if (result) {
+              console.log("✅ Backup email sent successfully");
+            } else {
+              console.log(
+                "ℹ️ Backup email not sent (backend email should have been sent)"
+              );
+            }
+          })
+          .catch((err) => {
+            console.warn("⚠️ Backup email failed (non-critical):", err);
+            // Don't block - backend should have sent email already
+          });
 
         // 导航到成功页面，传递预约数据（包含后端返回的 bookingId）
         navigate("/booking/success", {

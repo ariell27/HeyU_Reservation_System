@@ -7,9 +7,20 @@ const router = express.Router();
 // GET /api/email/test - Test email configuration
 router.get('/test', async (req, res) => {
   try {
+    console.log('=== EMAIL TEST STARTED ===');
+    console.log('Request received at:', new Date().toISOString());
+    
     const testEmail = req.query.email || process.env.SMTP_USER;
     
+    console.log('Test email address:', testEmail);
+    console.log('Environment check:', {
+      SMTP_HOST: process.env.SMTP_HOST ? 'SET' : 'NOT SET',
+      SMTP_USER: process.env.SMTP_USER ? 'SET' : 'NOT SET',
+      SMTP_PASS: process.env.SMTP_PASS ? 'SET' : 'NOT SET'
+    });
+    
     if (!testEmail) {
+      console.log('ERROR: No email provided');
       return res.status(400).json({
         success: false,
         message: 'Please provide email address as query parameter: /api/email/test?email=your@email.com'
@@ -26,6 +37,8 @@ router.get('/test', async (req, res) => {
       SMTP_PASS: process.env.SMTP_PASS ? '✅ Set (hidden)' : '❌ Missing',
       SMTP_FROM: process.env.SMTP_FROM || process.env.SMTP_USER || 'Not set',
     };
+
+    console.log('Configuration:', config);
 
     // Try to send test email
     const testBookingData = {
@@ -44,8 +57,12 @@ router.get('/test', async (req, res) => {
       selectedTime: '10:00'
     };
 
+    console.log('Calling sendConfirmationEmail...');
     const result = await sendConfirmationEmail(testBookingData);
+    console.log('Email send result:', JSON.stringify(result, null, 2));
 
+    console.log('=== EMAIL TEST COMPLETED ===');
+    
     res.json({
       success: result.success,
       message: result.success 
@@ -56,7 +73,9 @@ router.get('/test', async (req, res) => {
       testEmail: testEmail
     });
   } catch (error) {
+    console.error('=== EMAIL TEST ERROR ===');
     console.error('Test email failed:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Test email failed',
@@ -68,6 +87,7 @@ router.get('/test', async (req, res) => {
 // POST /api/email/send-confirmation - Send confirmation email manually
 router.post('/send-confirmation', async (req, res) => {
   try {
+    console.log('=== SEND CONFIRMATION EMAIL REQUEST ===');
     const { bookingId, bookingData } = req.body;
 
     let booking = bookingData;
@@ -92,8 +112,10 @@ router.post('/send-confirmation', async (req, res) => {
       });
     }
 
+    console.log('Sending email for booking:', booking.bookingId || 'N/A');
     // Send email
     const result = await sendConfirmationEmail(booking);
+    console.log('Email send result:', result);
 
     if (result.success) {
       res.json({
@@ -119,4 +141,3 @@ router.post('/send-confirmation', async (req, res) => {
 });
 
 export default router;
-
