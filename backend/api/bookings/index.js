@@ -6,7 +6,7 @@ import {
   validateBookingData
 } from '../../utils/bookingUtils.js';
 import { sendConfirmationEmail } from '../../utils/emailUtils.js';
-import { initRedisClient } from '../../utils/redis.js';
+import { initRedisClient, redis, REDIS_KEYS } from '../../utils/redis.js';
 
 let redisInitialized = false;
 
@@ -131,6 +131,52 @@ export default async function handler(req, res) {
         count: bookings.length,
         bookings: bookings
       });
+    }
+
+    // DELETE /api/bookings?action=clear-all - Clear all booking data
+    if (req.method === 'DELETE') {
+      const { action } = req.query;
+      
+      // Only allow clearing all data with explicit action parameter
+      if (action === 'clear-all') {
+        console.log('🗑️  Clear all bookings request received');
+        
+        // Get count before deletion for reporting
+        const bookings = await readBookings();
+        const countBefore = bookings.length;
+        
+        // Delete the bookings key
+        const result = await redis.del(REDIS_KEYS.BOOKINGS);
+        
+        // Verify deletion
+        const checkData = await redis.get(REDIS_KEYS.BOOKINGS);
+        const isCleared = checkData === null;
+        
+        if (result === 1 && isCleared) {
+          console.log(`✅ Successfully cleared ${countBefore} booking(s) from Redis`);
+          return res.status(200).json({
+            success: true,
+            message: `All booking data has been cleared successfully.`,
+            deletedCount: countBefore,
+            key: REDIS_KEYS.BOOKINGS,
+            verified: true,
+            timestamp: new Date().toISOString()
+          });
+        } else {
+          console.warn('⚠️  Warning: Deletion may not have completed successfully');
+          return res.status(500).json({
+            success: false,
+            message: 'Deletion completed but verification failed',
+            deletedCount: countBefore,
+            verified: false
+          });
+        }
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid action. Use ?action=clear-all to clear all bookings.'
+        });
+      }
     }
 
     return res.status(405).json({

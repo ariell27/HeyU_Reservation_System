@@ -18,8 +18,6 @@ export default async function handler(req, res) {
       services: "/api/services",
       blockedDates: "/api/blocked-dates",
       email: {
-        check: "/api/email/check",
-        test: "/api/email/test",
         sendConfirmation: "/api/email/send-confirmation"
       }
     }
