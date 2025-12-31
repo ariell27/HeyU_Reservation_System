@@ -10,14 +10,19 @@ import {
   deleteBlockedDate,
   deleteBlockedTime,
 } from "../utils/api";
-import { generateDefaultTimeSlots } from "../utils/timeSlotUtils";
+import {
+  generateDefaultTimeSlots,
+  isTimeSlotBooked,
+  parseDuration,
+  formatDateToLocalString as formatDateToLocalStringUtil,
+} from "../utils/timeSlotUtils";
 import styles from "./AdminPage.module.css";
 
 function AdminPage() {
   const [services, setServices] = useState([]);
   const [editingService, setEditingService] = useState(null);
-  // blockedDates 现在存储 { date: "2024-12-20", times: ["10:00", "14:30"] } 格式
-  // 如果 times 为空数组，表示整个日期被屏蔽
+  // blockedDates now stores { date: "2024-12-20", times: ["10:00", "14:30"] } format
+  // If times is an empty array, it means the entire date is blocked
   const [blockedDates, setBlockedDates] = useState([]);
   const [_showAddService, setShowAddService] = useState(false);
   const [activeTab, setActiveTab] = useState("bookings"); // services, dates, bookings
@@ -27,53 +32,73 @@ function AdminPage() {
   const [_loading, setLoading] = useState(true);
   const [_error, setError] = useState(null);
 
-  // 从后端加载服务数据
+  // Load service data from backend
   useEffect(() => {
     const fetchServices = async () => {
       try {
         const servicesData = await getServices();
         setServices(servicesData);
       } catch (err) {
-        console.error("获取服务失败:", err);
-        setError("无法加载服务列表 | Unable to load services");
+        console.error("Failed to fetch services:", err);
+        setError("Unable to load service list");
       }
     };
     fetchServices();
   }, []);
 
-  // 从后端加载预订数据
+  // Load booking data from backend
   useEffect(() => {
     const fetchBookings = async () => {
       try {
         setLoading(true);
         const bookingsData = await getBookings();
-        // 转换后端数据格式为前端使用的格式
+        // Convert backend data format to frontend format
         const formattedBookings = bookingsData.map((booking, index) => {
-          // 从 bookingId 中提取数字部分作为显示 ID
-          // bookingId 格式: BK{timestamp}{random}，提取所有数字并取后6-8位作为简短ID
+          // Extract numeric part from bookingId as display ID
+          // bookingId format: BK{timestamp}{random}, extract all numbers and take last 6-8 digits as short ID
           const allNumbers = booking.bookingId.replace(/\D/g, "");
-          // 使用时间戳的后6位，如果不够则使用所有数字的后6位
+          // Use last 6 digits of timestamp, if not enough use last 6 digits of all numbers
           const numericId =
             allNumbers.length > 6
               ? allNumbers.slice(-6)
               : allNumbers || (index + 1).toString();
+          // Process date: if string (YYYY-MM-DD), convert to Date object
+          let bookingDate;
+          if (typeof booking.selectedDate === "string") {
+            // If YYYY-MM-DD format, create local date directly
+            if (booking.selectedDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+              const [year, month, day] = booking.selectedDate
+                .split("-")
+                .map(Number);
+              bookingDate = new Date(year, month - 1, day);
+            } else {
+              // If ISO string, parse as local date
+              bookingDate = new Date(booking.selectedDate);
+            }
+          } else {
+            bookingDate = new Date(booking.selectedDate);
+          }
+
           return {
-            id: booking.bookingId, // 保留完整 ID 用于 key
-            displayId: numericId, // 用于显示的简化数字 ID
+            id: booking.bookingId, // Keep full ID for key
+            displayId: numericId, // Simplified numeric ID for display
             customerName: booking.name,
+            name: booking.name, // Also keep name field for display
             phone: booking.phone,
             email: booking.email,
             service: booking.service,
-            date: new Date(booking.selectedDate),
+            date: bookingDate,
             time: booking.selectedTime,
+            selectedTime: booking.selectedTime, // Ensure selectedTime is included
+            startTime: booking.selectedTime, // Also as alias for startTime
             status: booking.status,
             createdAt: new Date(booking.createdAt),
           };
         });
         setBookings(formattedBookings);
       } catch (err) {
-        console.error("获取预订失败:", err);
-        setError("无法加载预订列表 | Unable to load bookings");
+        console.error("Failed to fetch bookings:", err);
+        setError("Unable to load booking list");
       } finally {
         setLoading(false);
       }
@@ -81,15 +106,15 @@ function AdminPage() {
     fetchBookings();
   }, []);
 
-  // 从后端加载屏蔽日期数据
+  // Load blocked dates data from backend
   useEffect(() => {
     const fetchBlockedDates = async () => {
       try {
         const blockedDatesData = await getBlockedDates();
         setBlockedDates(blockedDatesData);
       } catch (err) {
-        console.error("获取屏蔽日期失败:", err);
-        // 不显示错误，因为这是可选功能
+        console.error("Failed to fetch blocked dates:", err);
+        // Don't show error, as this is an optional feature
       }
     };
     fetchBlockedDates();
@@ -101,35 +126,29 @@ function AdminPage() {
 
   const handleSaveService = async () => {
     try {
-      // 保存到后端
+      // Save to backend
       const savedService = await saveService(editingService);
 
-      // 更新本地状态
+      // Update local state
       if (editingService.id) {
-        // 更新现有服务
+        // Update existing service
         setServices(
           services.map((s) => (s.id === savedService.id ? savedService : s))
         );
       } else {
-        // 添加新服务
+        // Add new service
         setServices([...services, savedService]);
         setShowAddService(false);
       }
       setEditingService(null);
     } catch (err) {
-      console.error("保存服务失败:", err);
-      alert(
-        "保存服务失败，请稍后重试。| Failed to save service, please try again."
-      );
+      console.error("Failed to save service:", err);
+      alert("Failed to save service, please try again.");
     }
   };
 
   const handleDeleteService = (id) => {
-    if (
-      window.confirm(
-        "确定要删除这个服务吗？| Are you sure you want to delete this service?"
-      )
-    ) {
+    if (window.confirm("Are you sure you want to delete this service?")) {
       setServices(services.filter((s) => s.id !== id));
     }
   };
@@ -153,87 +172,114 @@ function AdminPage() {
   const handleUnblockDate = async (dateStr) => {
     try {
       await deleteBlockedDate(dateStr);
-      setBlockedDates(blockedDates.filter((d) => d.date !== dateStr));
-    } catch (err) {
-      console.error("删除屏蔽日期失败:", err);
-      alert(
-        "删除屏蔽日期失败，请稍后重试。| Failed to unblock date, please try again."
+      // Update local state
+      const updatedBlockedDates = blockedDates.filter(
+        (d) => d.date !== dateStr
       );
+      setBlockedDates(updatedBlockedDates);
+      // Re-fetch from backend to ensure sync
+      const freshData = await getBlockedDates();
+      setBlockedDates(freshData);
+    } catch (err) {
+      console.error("Failed to delete blocked date:", err);
+      alert("Failed to unblock date, please try again.");
     }
   };
 
-  const handleUnblockTime = async (dateStr, time) => {
+  const handleUnblockTime = async (dateStr, time, allSlots = []) => {
     try {
-      // 确保时间格式是 "HH:MM" 格式
+      // Ensure time format is "HH:MM"
       const normalizedTime = time.includes(":")
         ? time
         : `${time.padStart(2, "0")}:00`;
 
-      await deleteBlockedTime(dateStr, normalizedTime);
-      setBlockedDates(
-        blockedDates
-          .map((blocked) => {
-            if (blocked.date === dateStr) {
-              const newTimes = blocked.times.filter(
-                (t) => t !== normalizedTime
-              );
-              // 如果没有时间段了，删除整个日期记录
-              if (newTimes.length === 0) {
-                return null;
-              }
-              return { ...blocked, times: newTimes };
-            }
-            return blocked;
-          })
-          .filter(Boolean)
-      );
+      const existingBlock = blockedDates.find((b) => b.date === dateStr);
+
+      // If entire date is blocked (times is empty array), need to convert to partial block
+      if (existingBlock && existingBlock.times.length === 0) {
+        // Generate all time slots, then remove cancelled time slot
+        if (allSlots.length === 0) {
+          // If allSlots not provided, try to create Date object from date string
+          const blockedDate = new Date(dateStr + "T00:00:00");
+          if (!isNaN(blockedDate.getTime())) {
+            const slots3h = generateDefaultTimeSlots(blockedDate, 3);
+            const slots5h = generateDefaultTimeSlots(blockedDate, 5);
+            allSlots = [...new Set([...slots3h, ...slots5h])].sort();
+          }
+        }
+        // Remove cancelled time slot
+        const remainingTimes = allSlots.filter(
+          (slot) => slot !== normalizedTime
+        );
+        // Update to partial block
+        await saveBlockedDate({ date: dateStr, times: remainingTimes });
+      } else {
+        // Normal case: delete single time slot
+        await deleteBlockedTime(dateStr, normalizedTime);
+      }
+
+      // Re-fetch from backend to ensure sync
+      const freshData = await getBlockedDates();
+      setBlockedDates(freshData);
     } catch (err) {
-      console.error("删除时间段屏蔽失败:", err);
-      alert(
-        "删除时间段屏蔽失败，请稍后重试。| Failed to unblock time, please try again."
-      );
+      console.error("Failed to delete blocked time slot:", err);
+      alert("Failed to unblock time, please try again.");
     }
   };
 
-  const handleBlockTime = async (dateStr, time) => {
+  const handleBlockTime = async (dateStr, time, allSlots = []) => {
     try {
-      // 确保时间格式是 "HH:MM" 格式
+      // Ensure time format is "HH:MM"
       const normalizedTime = time.includes(":")
         ? time
         : `${time.padStart(2, "0")}:00`;
 
       const existingBlock = blockedDates.find((b) => b.date === dateStr);
       let updatedBlockedDate;
+      let newTimes;
 
       if (existingBlock) {
-        // 如果日期已存在，添加时间段
-        if (!existingBlock.times.includes(normalizedTime)) {
-          updatedBlockedDate = {
-            date: dateStr,
-            times: [...existingBlock.times, normalizedTime],
-          };
-          await saveBlockedDate(updatedBlockedDate);
-          setBlockedDates(
-            blockedDates.map((b) =>
-              b.date === dateStr ? updatedBlockedDate : b
-            )
-          );
+        // If entire date is already blocked (times is empty array), first unblock full day, add single time slot
+        if (existingBlock.times.length === 0) {
+          newTimes = [normalizedTime];
+        } else {
+          // If date exists, add time slot
+          if (!existingBlock.times.includes(normalizedTime)) {
+            newTimes = [...existingBlock.times, normalizedTime];
+          } else {
+            // If time slot already exists, return directly
+            return;
+          }
         }
       } else {
-        // 如果日期不存在，创建新记录
-        updatedBlockedDate = { date: dateStr, times: [normalizedTime] };
-        await saveBlockedDate(updatedBlockedDate);
-        setBlockedDates([...blockedDates, updatedBlockedDate]);
+        // If date doesn't exist, create new record
+        newTimes = [normalizedTime];
       }
+
+      // Check if all time slots are blocked
+      const allSlotsSet = new Set(allSlots);
+      const blockedTimesSet = new Set(newTimes);
+      const allBlocked = allSlots.every((slot) => blockedTimesSet.has(slot));
+
+      // If all time slots are blocked, convert to blocking entire day (times is empty array)
+      if (allBlocked && allSlots.length > 0) {
+        updatedBlockedDate = { date: dateStr, times: [] };
+      } else {
+        updatedBlockedDate = { date: dateStr, times: newTimes };
+      }
+
+      await saveBlockedDate(updatedBlockedDate);
+
+      // Re-fetch from backend to ensure sync
+      const freshData = await getBlockedDates();
+      setBlockedDates(freshData);
     } catch (err) {
-      console.error("保存时间段屏蔽失败:", err);
-      alert(
-        "保存时间段屏蔽失败，请稍后重试。| Failed to block time, please try again."
-      );
+      console.error("Failed to save blocked time slot:", err);
+      alert("Failed to block time, please try again.");
     }
   };
 
-  // 将日期对象转换为本地日期字符串 (YYYY-MM-DD)，避免时区问题
+  // Convert date object to local date string (YYYY-MM-DD) to avoid timezone issues
   const formatDateToLocalString = (date) => {
     if (!date) return "";
     const year = date.getFullYear();
@@ -252,22 +298,25 @@ function AdminPage() {
   };
 
   const formatTime = (time) => {
-    const [hours, minutes] = time.split(":");
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? "pm" : "am";
-    const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-    return `${displayHour}:${minutes} ${ampm}`;
+    // Use 24-hour format, consistent with TimeSelectionPage
+    return time;
   };
 
-  const getBlockedTimesForDate = (dateStr) => {
+  const getBlockedTimesForDate = (dateStr, allSlots = []) => {
     const blocked = blockedDates.find((b) => b.date === dateStr);
     if (!blocked) return [];
-    // 确保返回的时间格式是 "HH:MM" 格式
+
+    // If entire date is blocked (times is empty array), return all time slots
+    if (blocked.times.length === 0) {
+      return allSlots;
+    }
+
+    // Ensure returned time format is "HH:MM"
     return blocked.times.map((time) => {
       if (time.includes(":")) {
         return time;
       }
-      // 如果不是 "HH:MM" 格式，尝试转换
+      // If not "HH:MM" format, try to convert
       return `${time.padStart(2, "0")}:00`;
     });
   };
@@ -294,20 +343,20 @@ function AdminPage() {
 
   const handleBlockFullDate = async (date) => {
     try {
-      // 使用本地日期字符串，避免时区问题
+      // Use local date string to avoid timezone issues
       const dateStr = formatDateToLocalString(date);
-      // 屏蔽整个日期（times 为空数组表示整个日期被屏蔽）
+      // Block entire date (times as empty array means entire date is blocked)
       const existingBlock = blockedDates.find((b) => b.date === dateStr);
       if (!existingBlock) {
         const newBlockedDate = { date: dateStr, times: [] };
         await saveBlockedDate(newBlockedDate);
-        setBlockedDates([...blockedDates, newBlockedDate]);
+        // Re-fetch from backend to ensure sync
+        const freshData = await getBlockedDates();
+        setBlockedDates(freshData);
       }
     } catch (err) {
-      console.error("保存屏蔽日期失败:", err);
-      alert(
-        "保存屏蔽日期失败，请稍后重试。| Failed to block date, please try again."
-      );
+      console.error("Failed to save blocked date:", err);
+      alert("Failed to block date, please try again.");
     }
   };
 
@@ -360,7 +409,7 @@ function AdminPage() {
               </button>
             </div>
 
-            {/* 按分类组织服务 */}
+            {/* Organize services by category */}
             {(() => {
               const servicesByCategory = {
                 本甲: services.filter((s) => s.category === "本甲"),
@@ -474,7 +523,7 @@ function AdminPage() {
                 .map((b) => b.date)}
             />
 
-            {/* 选中日期的时间段管理 */}
+            {/* Time slot management for selected date */}
             {selectedBlockDate && (
               <div className={styles.timeBlockSection}>
                 <h3 className={styles.timeBlockTitle}>
@@ -492,48 +541,117 @@ function AdminPage() {
                 </div>
 
                 <div className={styles.timeSlotsGrid}>
-                  {generateDefaultTimeSlots(selectedBlockDate).map((time) => {
+                  {(() => {
+                    // 生成所有可能的默认时间槽（合并3小时和5小时服务的默认时间槽）
+                    const slots3h = generateDefaultTimeSlots(
+                      selectedBlockDate,
+                      3
+                    );
+                    const slots5h = generateDefaultTimeSlots(
+                      selectedBlockDate,
+                      5
+                    );
+                    // 合并并去重
+                    const allSlots = [
+                      ...new Set([...slots3h, ...slots5h]),
+                    ].sort();
+
                     const dateStr = formatDateToLocalString(selectedBlockDate);
-                    const blockedTimes = getBlockedTimesForDate(dateStr);
-                    // 确保时间格式一致：使用 "HH:MM" 格式进行比较
-                    const normalizedTime = time; // generateDefaultTimeSlots 已经返回 "HH:MM" 格式
-                    const isBlocked = blockedTimes.some(
-                      (blockedTime) => blockedTime === normalizedTime
+                    const blockedTimes = getBlockedTimesForDate(
+                      dateStr,
+                      allSlots
                     );
                     const isFullyBlocked = isDateFullyBlocked(dateStr);
 
-                    return (
-                      <button
-                        key={time}
-                        className={`${styles.timeSlotButton} ${
-                          isBlocked || isFullyBlocked ? styles.blocked : ""
-                        }`}
-                        onClick={() => {
-                          if (isFullyBlocked) return;
-                          // 确保存储的时间格式是 "HH:MM"
-                          const timeToStore = normalizedTime;
-                          if (isBlocked) {
-                            handleUnblockTime(dateStr, timeToStore);
-                          } else {
-                            handleBlockTime(dateStr, timeToStore);
+                    return allSlots.map((time) => {
+                      // 确保时间格式一致：使用 "HH:MM" 格式进行比较
+                      const normalizedTime = time; // generateDefaultTimeSlots 已经返回 "HH:MM" 格式
+                      // 如果整个日期被屏蔽，所有时间槽都显示为已屏蔽
+                      const isBlocked =
+                        isFullyBlocked ||
+                        blockedTimes.some(
+                          (blockedTime) => blockedTime === normalizedTime
+                        );
+
+                      // 获取该日期的预订数据
+                      const dateBookings =
+                        getBookingsForDate(selectedBlockDate);
+                      // 检查时间槽是否已被预订（检查3小时和5小时两种情况）
+                      const isBooked3h = isTimeSlotBooked(
+                        time,
+                        dateBookings,
+                        3
+                      );
+                      const isBooked5h = isTimeSlotBooked(
+                        time,
+                        dateBookings,
+                        5
+                      );
+                      const isBooked = isBooked3h || isBooked5h;
+
+                      // Find booking info for this time slot (for display)
+                      const bookingAtTime = dateBookings.find((booking) => {
+                        const bookingTime =
+                          booking.selectedTime ||
+                          booking.time ||
+                          booking.startTime;
+                        if (!bookingTime) return false;
+                        const [bookingStartHours] = bookingTime
+                          .split(":")
+                          .map(Number);
+                        const [timeHours] = time.split(":").map(Number);
+                        return bookingStartHours === timeHours;
+                      });
+
+                      return (
+                        <button
+                          key={time}
+                          className={`${styles.timeSlotButton} ${
+                            isBlocked || isFullyBlocked ? styles.blocked : ""
+                          } ${isBooked ? styles.booked : ""}`}
+                          onClick={() => {
+                            if (isBooked) return;
+                            // Ensure stored time format is "HH:MM"
+                            const timeToStore = normalizedTime;
+                            if (isBlocked) {
+                              // When unblocking time slot from full-day block, need to pass allSlots
+                              handleUnblockTime(
+                                dateStr,
+                                timeToStore,
+                                isFullyBlocked ? allSlots : undefined
+                              );
+                            } else {
+                              // 使用外层已生成的所有时间槽列表
+                              handleBlockTime(dateStr, timeToStore, allSlots);
+                            }
+                          }}
+                          disabled={isBooked}
+                          title={
+                            isBooked
+                              ? bookingAtTime
+                                ? `已被预约 | Booked by ${
+                                    bookingAtTime.customerName ||
+                                    bookingAtTime.name
+                                  }`
+                                : "已被预约 | Booked"
+                              : isBlocked
+                              ? isFullyBlocked
+                                ? "点击取消此时间槽的屏蔽 | Click to unblock this time slot"
+                                : "点击取消屏蔽 | Click to unblock"
+                              : "点击屏蔽此时间段 | Click to block"
                           }
-                        }}
-                        disabled={isFullyBlocked}
-                        title={
-                          isFullyBlocked
-                            ? "整个日期已被屏蔽 | Full date is blocked"
-                            : isBlocked
-                            ? "点击取消屏蔽 | Click to unblock"
-                            : "点击屏蔽此时间段 | Click to block"
-                        }
-                      >
-                        {formatTime(time)}
-                        {isBlocked && (
-                          <span className={styles.blockedIcon}>✕</span>
-                        )}
-                      </button>
-                    );
-                  })}
+                        >
+                          {formatTime(time)}
+                          {isBlocked && !isBooked && (
+                            <span className={styles.blockedIcon}>✕</span>
+                          )}
+                          {isBooked && !isBlocked && (
+                            <span className={styles.bookedIcon}>✓</span>
+                          )}
+                        </button>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             )}
@@ -549,33 +667,72 @@ function AdminPage() {
               ) : (
                 blockedDates.map((blocked) => {
                   const isFull = blocked.times.length === 0;
+                  // 如果整个日期被屏蔽，生成所有时间槽用于显示
+                  let timesToShow = blocked.times;
+                  if (isFull) {
+                    // 尝试从日期字符串创建 Date 对象
+                    const blockedDate = new Date(blocked.date + "T00:00:00");
+                    if (!isNaN(blockedDate.getTime())) {
+                      const slots3h = generateDefaultTimeSlots(blockedDate, 3);
+                      const slots5h = generateDefaultTimeSlots(blockedDate, 5);
+                      timesToShow = [
+                        ...new Set([...slots3h, ...slots5h]),
+                      ].sort();
+                    }
+                  }
                   return (
                     <div key={blocked.date} className={styles.blockedDateItem}>
                       <div className={styles.blockedDateInfo}>
                         <span className={styles.blockedDateText}>
                           {formatDate(blocked.date)}
+                          {isFull && (
+                            <span className={styles.fullBlockLabel}>
+                              {" "}
+                              (全天 | Full Day)
+                            </span>
+                          )}
                         </span>
-                        {isFull || (
-                          <div className={styles.blockedTimesList}>
-                            {blocked.times.map((time) => (
-                              <span
-                                key={time}
-                                className={styles.blockedTimeTag}
-                              >
-                                {formatTime(time)}
-                                <button
-                                  className={styles.removeTimeButton}
-                                  onClick={() =>
-                                    handleUnblockTime(blocked.date, time)
+                        <div className={styles.blockedTimesList}>
+                          {timesToShow.map((time) => (
+                            <span key={time} className={styles.blockedTimeTag}>
+                              {formatTime(time)}
+                              <button
+                                className={styles.removeTimeButton}
+                                onClick={() => {
+                                  // 如果是全天屏蔽，需要传入所有时间槽
+                                  if (isFull) {
+                                    const blockedDate = new Date(
+                                      blocked.date + "T00:00:00"
+                                    );
+                                    if (!isNaN(blockedDate.getTime())) {
+                                      const slots3h = generateDefaultTimeSlots(
+                                        blockedDate,
+                                        3
+                                      );
+                                      const slots5h = generateDefaultTimeSlots(
+                                        blockedDate,
+                                        5
+                                      );
+                                      const allSlotsForUnblock = [
+                                        ...new Set([...slots3h, ...slots5h]),
+                                      ].sort();
+                                      handleUnblockTime(
+                                        blocked.date,
+                                        time,
+                                        allSlotsForUnblock
+                                      );
+                                    }
+                                  } else {
+                                    handleUnblockTime(blocked.date, time);
                                   }
-                                  title="取消屏蔽 | Unblock"
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                                }}
+                                title="取消屏蔽 | Unblock"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                        </div>
                       </div>
                       <button
                         className={styles.unblockButton}

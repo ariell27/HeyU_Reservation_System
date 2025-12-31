@@ -1,86 +1,76 @@
 /**
- * 邮件发送服务
- * 在实际项目中，这应该调用后端API或第三方邮件服务（如EmailJS、SendGrid等）
+ * Email service
+ * Sends confirmation emails via backend API
  */
 
+// Get API URL and remove trailing slash
+const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = rawApiUrl.replace(/\/+$/, ''); // Remove trailing slashes
+
+// Debug: Log API URL
+if (typeof window !== 'undefined') {
+  console.log('📧 Email Service API_URL:', API_URL);
+}
+
 /**
- * 发送确认邮件
- * @param {Object} bookingData - 预约数据
- * @returns {Promise<boolean>} 是否发送成功
+ * Send confirmation email
+ * @param {Object} bookingData - Booking data
+ * @returns {Promise<boolean>} Whether email was sent successfully
  */
 export const sendConfirmationEmail = async (bookingData) => {
+  console.log('📧 sendConfirmationEmail called with:', {
+    email: bookingData.email,
+    bookingId: bookingData.bookingId,
+    API_URL: API_URL
+  });
+
   try {
-    // 方案1: 调用后端API（推荐用于生产环境）
-    const response = await fetch('/api/send-confirmation-email', {
+    const url = `${API_URL}/api/email/send-confirmation`;
+    console.log('📧 Calling email API:', url);
+    
+    // Call backend API to send email
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        to: bookingData.email,
-        phone: bookingData.phone,
-        service: bookingData.service,
-        date: bookingData.selectedDate,
-        time: bookingData.selectedTime,
-        staff: bookingData.selectedStaff,
+        bookingData: bookingData,
       }),
     });
 
+    console.log('📧 Email API response status:', response.status);
+
     if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Email sent successfully:', data);
       return true;
     } else {
-      console.error('邮件发送失败:', await response.text());
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      console.error('❌ Failed to send email:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      });
+      // Don't throw error, just log it - email failure shouldn't block booking
       return false;
     }
   } catch (error) {
-    // 方案2: 如果后端API不可用，可以使用EmailJS等第三方服务
-    // 这里提供一个使用EmailJS的示例（需要先安装 @emailjs/browser）
-    /*
-    import emailjs from '@emailjs/browser';
-    
-    const templateParams = {
-      to_email: bookingData.email,
-      to_phone: bookingData.phone,
-      service_name: `${bookingData.service.nameCn} | ${bookingData.service.nameEn}`,
-      date: formatDate(bookingData.selectedDate),
-      time: formatTime(bookingData.selectedTime),
-      staff_name: bookingData.selectedStaff.name,
-      price: bookingData.service.price,
-    };
-
-    try {
-      await emailjs.send(
-        'YOUR_SERVICE_ID',
-        'YOUR_TEMPLATE_ID',
-        templateParams,
-        'YOUR_PUBLIC_KEY'
-      );
-      return true;
-    } catch (error) {
-      console.error('EmailJS发送失败:', error);
-      return false;
-    }
-    */
-
-    // 开发环境：模拟邮件发送
-    console.log('模拟发送确认邮件:', {
-      to: bookingData.email,
-      subject: 'HeyU禾屿 - 预约确认',
-      htmlContent: generateEmailContent(bookingData),
+    // If backend API is not available, just log and return false
+    // Email sending is handled by backend automatically when booking is created
+    console.error('❌ Email service error:', {
+      message: error.message,
+      stack: error.stack,
+      API_URL: API_URL
     });
-
-    // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // 在开发环境中，我们假设总是成功
-    return true;
+    return false;
   }
 };
 
 /**
- * 生成邮件内容
- * @param {Object} bookingData - 预约数据
- * @returns {string} 邮件HTML内容
+ * Generate email content
+ * @param {Object} bookingData - Booking data
+ * @returns {string} Email HTML content
  */
     const generateEmailContent = (bookingData) => {
       const { service, selectedDate, selectedTime, selectedStaff, name, email, phone, wechat } = bookingData;
@@ -128,57 +118,57 @@ export const sendConfirmationEmail = async (bookingData) => {
           <div class="logo">HeyU禾屿</div>
         </div>
         <div class="content">
-          <h2>预约确认</h2>
-          <p>感谢您选择HeyU禾屿！您的预约已成功确认。</p>
+          <h2>Booking Confirmation</h2>
+          <p>Thank you for choosing HeyU! Your booking has been successfully confirmed.</p>
           
           <div class="detail-item">
-            <span class="label">服务：</span>
+            <span class="label">Service:</span>
             <span class="value">${service.nameCn} | ${service.nameEn}</span>
           </div>
           <div class="detail-item">
-            <span class="label">员工：</span>
+            <span class="label">Staff:</span>
             <span class="value">${selectedStaff.name}</span>
           </div>
           <div class="detail-item">
-            <span class="label">日期：</span>
+            <span class="label">Date:</span>
             <span class="value">${formatDate(selectedDate)}</span>
           </div>
           <div class="detail-item">
-            <span class="label">时间：</span>
+            <span class="label">Time:</span>
             <span class="value">${formatTime(selectedTime)}</span>
           </div>
           <div class="detail-item">
-            <span class="label">时长：</span>
+            <span class="label">Duration:</span>
             <span class="value">${service.duration}</span>
           </div>
           <div class="detail-item">
-            <span class="label">价格：</span>
+            <span class="label">Price:</span>
             <span class="value">${service.price}</span>
           </div>
           <div class="detail-item">
-            <span class="label">姓名：</span>
+            <span class="label">Name:</span>
             <span class="value">${name || 'N/A'}</span>
           </div>
           <div class="detail-item">
-            <span class="label">电话：</span>
+            <span class="label">Phone:</span>
             <span class="value">${phone}</span>
           </div>
           <div class="detail-item">
-            <span class="label">邮箱：</span>
+            <span class="label">Email:</span>
             <span class="value">${email}</span>
           </div>
           ${wechat ? `<div class="detail-item">
-            <span class="label">微信：</span>
+            <span class="label">WeChat:</span>
             <span class="value">${wechat}</span>
           </div>` : ''}
           
           <p style="margin-top: 20px;">
-            我们会在预约前24小时通过电话或邮件与您确认。<br>
-            如有任何问题，请随时联系我们。
+            We will contact you 24 hours before your appointment via phone or email to confirm.<br>
+            If you have any questions, please feel free to contact us.
           </p>
         </div>
         <div class="footer">
-          <p>此邮件由系统自动发送，请勿回复。</p>
+          <p>This is an automated email, please do not reply.</p>
         </div>
       </div>
     </body>

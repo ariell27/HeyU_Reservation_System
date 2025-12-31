@@ -1,102 +1,109 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { getRedisClientAsync, REDIS_KEYS } from './redis.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const BOOKINGS_FILE = path.join(DATA_DIR, 'bookings.json');
-
-// 确保数据目录存在
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-}
-
-// 初始化 bookings.json 文件
-function initializeBookingsFile() {
-  ensureDataDir();
-  if (!fs.existsSync(BOOKINGS_FILE)) {
-    fs.writeFileSync(BOOKINGS_FILE, JSON.stringify({ bookings: [] }, null, 2));
-  }
-}
-
-// 读取所有预订
-export function readBookings() {
+// Read all bookings
+export async function readBookings() {
   try {
-    initializeBookingsFile();
-    const data = fs.readFileSync(BOOKINGS_FILE, 'utf8');
-    const json = JSON.parse(data);
-    return json.bookings || [];
+    const client = await getRedisClientAsync();
+    const data = await client.get(REDIS_KEYS.BOOKINGS);
+    
+    if (data === null) {
+      // If no data in Redis, return empty array
+      return [];
+    }
+    
+    // Parse JSON string
+    const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+    
+    // If stored in old format (object with bookings field), extract bookings array
+    if (typeof parsed === 'object' && parsed.bookings) {
+      return parsed.bookings;
+    }
+    
+    // If directly stored as array, return directly
+    if (Array.isArray(parsed)) {
+      return parsed;
+    }
+    
+    return [];
   } catch (error) {
-    console.error('读取预订数据失败:', error);
+    console.error('Failed to read booking data:', error);
     return [];
   }
 }
 
-// 保存所有预订
-export function saveBookings(bookings) {
+// Save all bookings
+export async function saveBookings(bookings) {
   try {
-    ensureDataDir();
+    const client = await getRedisClientAsync();
     const data = {
       bookings: bookings,
       lastUpdated: new Date().toISOString()
     };
-    fs.writeFileSync(BOOKINGS_FILE, JSON.stringify(data, null, 2));
+    // Vercel KV can handle objects directly, but JSON.stringify is safer
+    await client.set(REDIS_KEYS.BOOKINGS, JSON.stringify(data));
+    console.log(`✅ Saved ${bookings.length} bookings to Redis`);
     return true;
   } catch (error) {
-    console.error('保存预订数据失败:', error);
+    console.error('❌ Failed to save booking data:', error);
     throw error;
   }
 }
 
-// 生成唯一的预订ID
+// Generate unique booking ID
 export function generateBookingId() {
   return `BK${Date.now()}${Math.random().toString(36).substr(2, 9)}`;
 }
 
-// 验证预订数据
+// Validate booking data
 export function validateBookingData(bookingData) {
   const errors = [];
 
   if (!bookingData.service || !bookingData.service.id) {
-    errors.push('服务信息是必填的');
+    errors.push('Service information is required');
   }
 
   if (!bookingData.selectedDate) {
-    errors.push('日期是必填的');
+    errors.push('Date is required');
+  } else {
+    // Validate date format: should be YYYY-MM-DD format
+    const dateStr = bookingData.selectedDate instanceof Date
+      ? bookingData.selectedDate.toISOString().split('T')[0]
+      : bookingData.selectedDate.split('T')[0]; // If ISO string, extract date part
+    
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(dateStr)) {
+      errors.push('Invalid date format, should be YYYY-MM-DD');
+    }
   }
 
   if (!bookingData.selectedTime) {
-    errors.push('时间是必填的');
+    errors.push('Time is required');
   }
 
   if (!bookingData.name || !bookingData.name.trim()) {
-    errors.push('姓名是必填的');
+    errors.push('Name is required');
   }
 
   if (!bookingData.wechatName || !bookingData.wechatName.trim()) {
-    errors.push('微信名是必填的');
+    errors.push('WeChat name is required');
   }
 
   if (!bookingData.email || !bookingData.email.trim()) {
-    errors.push('邮箱地址是必填的');
+    errors.push('Email address is required');
   } else {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(bookingData.email)) {
-      errors.push('邮箱地址格式无效');
+      errors.push('Invalid email address format');
     }
   }
 
   if (!bookingData.phone || !bookingData.phone.trim()) {
-    errors.push('电话号码是必填的');
+    errors.push('Phone number is required');
   } else {
     const phoneRegex = /^[\d\s\-\+\(\)]+$/;
     const digitsOnly = bookingData.phone.replace(/\D/g, '');
     if (!phoneRegex.test(bookingData.phone) || digitsOnly.length < 8) {
-      errors.push('电话号码格式无效');
+      errors.push('Invalid phone number format');
     }
   }
 
@@ -105,4 +112,3 @@ export function validateBookingData(bookingData) {
     errors: errors
   };
 }
-

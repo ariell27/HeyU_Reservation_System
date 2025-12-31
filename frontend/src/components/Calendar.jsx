@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatDateToLocalString } from "../utils/timeSlotUtils";
 import styles from "./Calendar.module.css";
 
 function Calendar({
@@ -75,19 +76,24 @@ function Calendar({
 
   const isDateBlocked = (date) => {
     if (!date) return false;
-    const dateStr = date.toISOString().split("T")[0];
+    // 使用本地日期字符串，避免时区问题
+    const dateStr = formatDateToLocalString(date);
     return blockedDates.includes(dateStr);
   };
 
   const getBookingCount = (date) => {
     if (!date || !showBookingCount || !bookingDates) return 0;
-    const dateStr = date.toISOString().split("T")[0];
+    // 使用本地日期字符串，避免时区问题
+    const dateStr = formatDateToLocalString(date);
     const matchingBookings = bookingDates.filter((booking) => {
       if (!booking || !booking.date) return false;
-      const bookingDateStr =
-        booking.date instanceof Date
-          ? booking.date.toISOString().split("T")[0]
-          : new Date(booking.date).toISOString().split("T")[0];
+      let bookingDate;
+      if (booking.date instanceof Date) {
+        bookingDate = booking.date;
+      } else {
+        bookingDate = new Date(booking.date);
+      }
+      const bookingDateStr = formatDateToLocalString(bookingDate);
       return bookingDateStr === dateStr;
     });
     return matchingBookings.length;

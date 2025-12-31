@@ -11,18 +11,23 @@ function BookingPage() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // 从后端 API 获取服务数据
+    // Fetch service data from backend API
     const fetchServices = async () => {
       try {
+        console.log('🔄 BookingPage: Starting to fetch services...');
         setLoading(true);
         setError(null);
         const servicesData = await getServices();
+        console.log('✅ BookingPage: Services loaded successfully:', servicesData.length);
         setServices(servicesData);
       } catch (err) {
-        console.error("获取服务失败:", err);
-        setError("无法加载服务列表，请稍后重试。| Unable to load services, please try again later.");
+        console.error("❌ BookingPage: Failed to fetch services:", err);
+        console.error("❌ Error message:", err.message);
+        console.error("❌ Error stack:", err.stack);
+        setError(`Unable to load service list, please try again later.\nError: ${err.message}`);
       } finally {
         setLoading(false);
+        console.log('🔄 BookingPage: Loading completed');
       }
     };
 
@@ -33,7 +38,7 @@ function BookingPage() {
     navigate("/booking/time", { state: { service } });
   };
 
-  // 按分类组织服务
+  // Organize services by category
   const servicesByCategory = {
     本甲: services.filter((s) => s.category === "本甲"),
     延长: services.filter((s) => s.category === "延长"),
@@ -52,7 +57,7 @@ function BookingPage() {
         <Header />
         <div className={styles.container}>
           <div className={styles.loadingMessage}>
-            加载中... | Loading...
+            Loading...
           </div>
         </div>
       </div>
@@ -77,9 +82,7 @@ function BookingPage() {
       <div className={styles.container}>
         <div className={styles.headerSection}>
           <h1 className={styles.pageTitle}>
-            手部美甲服务
-            <br />
-            <span className={styles.pageTitleEn}>Hand Manicure Services</span>
+            Hand Manicure Services
           </h1>
         </div>
 

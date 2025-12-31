@@ -1,205 +1,228 @@
-# HeyU 禾屿 - 美甲预约网站
+# HeyU 禾屿 - Nail Salon Booking System
 
-一个功能完整的美甲店预约管理系统，包含客户预约流程和管理后台。
+A complete nail salon booking management system with customer booking flow and admin panel.
 
-## 技术栈
+## Tech Stack
 
-### 前端
+### Frontend
 
-- **React** - 前端框架
-- **React Router DOM** - 页面路由
-- **Vite** - 构建工具
-- **CSS Modules** - 样式管理
+- **React** - Frontend framework
+- **React Router DOM** - Page routing
+- **Vite** - Build tool
+- **CSS Modules** - Style management
 
-### 后端
+### Backend
 
-- 待开发
+- **Node.js** - Runtime environment
+- **Express** - Web framework (migrated to Vercel Serverless Functions)
+- **Vercel KV (Upstash Redis)** - Database
+- **Nodemailer** - Email service
 
-## 项目结构
+## Project Structure
 
 ```
 HeyU_Reservation_System/
-├── frontend/                 # 前端项目
+├── frontend/                 # Frontend project
 │   ├── src/
-│   │   ├── components/           # 可复用组件
-│   │   │   ├── Header.jsx        # 导航头部
-│   │   │   ├── Button.jsx        # 通用按钮
-│   │   │   └── Calendar.jsx      # 日历组件
-│   │   ├── pages/                # 页面组件
-│   │   │   ├── LandingPage.jsx   # 首页
-│   │   │   ├── BookingPage.jsx   # 服务选择页
-│   │   │   ├── TimeSelectionPage.jsx  # 时间选择页
-│   │   │   ├── CustomerInfoPage.jsx   # 客户信息确认页
-│   │   │   ├── SuccessPage.jsx        # 预约成功页
-│   │   │   └── AdminPage.jsx          # 管理后台
-│   │   ├── data/                 # 数据文件
-│   │   │   └── services.js       # 服务数据
-│   │   ├── utils/                # 工具函数
-│   │   │   └── emailService.js   # 邮件发送服务
-│   │   ├── styles/               # 样式文件
-│   │   │   └── global.css        # 全局样式
-│   │   ├── App.jsx               # 主应用组件
-│   │   └── main.jsx              # 入口文件
-│   ├── public/                  # 静态资源
-│   ├── index.html               # HTML 入口
-│   ├── package.json             # 前端依赖配置
-│   ├── vite.config.js           # Vite 配置
-│   └── eslint.config.js         # ESLint 配置
-├── backend/                    # 后端项目（待开发）
-└── README.md                   # 项目说明文档
+│   │   ├── components/           # Reusable components
+│   │   │   ├── Header.jsx        # Navigation header
+│   │   │   ├── Button.jsx        # Generic button
+│   │   │   └── Calendar.jsx      # Calendar component
+│   │   ├── pages/                # Page components
+│   │   │   ├── LandingPage.jsx   # Landing page
+│   │   │   ├── BookingPage.jsx   # Service selection page
+│   │   │   ├── TimeSelectionPage.jsx  # Time selection page
+│   │   │   ├── CustomerInfoPage.jsx   # Customer info confirmation page
+│   │   │   ├── SuccessPage.jsx        # Booking success page
+│   │   │   └── AdminPage.jsx          # Admin panel
+│   │   ├── data/                 # Data files
+│   │   │   └── services.js       # Service data
+│   │   ├── utils/                # Utility functions
+│   │   │   └── emailService.js   # Email service
+│   │   ├── styles/               # Style files
+│   │   │   └── global.css        # Global styles
+│   │   ├── App.jsx               # Main app component
+│   │   └── main.jsx              # Entry file
+│   ├── public/                  # Static assets
+│   ├── index.html               # HTML entry
+│   ├── package.json             # Frontend dependencies
+│   ├── vite.config.js           # Vite config
+│   └── eslint.config.js         # ESLint config
+├── backend/                    # Backend project
+│   ├── api/                     # Vercel serverless functions
+│   ├── utils/                    # Utility functions
+│   ├── data/                     # Data files
+│   └── package.json              # Backend dependencies
+└── README.md                   # Project documentation
 ```
 
-## 功能特性
+## Features
 
-### 客户预约流程
+### Customer Booking Flow
 
-#### 1. 首页 (Landing Page)
+#### 1. Landing Page
 
-- 品牌介绍和欢迎信息
-- 中英文双语内容
-- 优雅的视觉设计
-- 响应式布局
+- Brand introduction and welcome message
+- Bilingual content (Chinese/English)
+- Elegant visual design
+- Responsive layout
 
-#### 2. 服务选择页 (Booking Page)
+#### 2. Service Selection Page (Booking Page)
 
-- 手部美甲服务列表
-- 按分类展示（本甲、延长、卸甲）
-- 服务详情（时长、价格、描述）
-- 中英文双语展示
-- 卡片式布局
+- Hand manicure service list
+- Display by category (Basic Nails, Extension, Removal)
+- Service details (duration, price, description)
+- Bilingual display (Chinese/English)
+- Card-based layout
 
-#### 3. 时间选择页 (TimeSelectionPage)
+#### 3. Time Selection Page (TimeSelectionPage)
 
-- 日历选择日期
-- 时间段选择（9:00 AM - 6:00 PM，30 分钟间隔）
-- 显示可用时间段
-- 预约摘要预览
-- 响应式设计，移动端底部固定栏
+- Calendar date selection
+- Time slot selection (9:00 AM - 6:00 PM, 30-minute intervals)
+- Display available time slots
+- Booking summary preview
+- Responsive design with fixed bottom bar on mobile
 
-#### 4. 客户信息确认页 (CustomerInfoPage)
+#### 4. Customer Info Confirmation Page (CustomerInfoPage)
 
-- 客户信息表单
-  - 姓名（必填）
-  - 电话号码（必填）
-  - 邮箱地址（必填）
-  - 微信号/微信名（可选）
-- 表单验证
-- 预约详情摘要
-- 面包屑导航
+- Customer information form
+  - Name (required)
+  - Phone number (required)
+  - Email address (required)
+  - WeChat ID/Name (optional)
+- Form validation
+- Booking summary
+- Breadcrumb navigation
 
-#### 5. 预约成功页 (SuccessPage)
+#### 5. Booking Success Page (SuccessPage)
 
-- 预约成功确认信息
-- 预约详情展示
-- 邮件确认提示
+- Booking confirmation message
+- Booking details display
+- Email confirmation notification
 
-### 管理后台 (AdminPage)
+### Admin Panel (AdminPage)
 
-#### 1. 服务管理
+#### 1. Service Management
 
-- 查看所有服务
-- 添加新服务
-- 编辑现有服务
-- 删除服务
-- 按分类组织展示
+- View all services
+- Add new service
+- Edit existing service
+- Delete service
+- Organize by category
 
-#### 2. 日期管理
+#### 2. Date Management
 
-- 日历选择日期
-- 屏蔽整个日期
-- 屏蔽特定时间段
-- 查看已屏蔽日期和时间列表
-- 取消屏蔽功能
+- Calendar date selection
+- Block entire date
+- Block specific time slots
+- View blocked dates and times list
+- Unblock functionality
 
-#### 3. 预约管理
+#### 3. Booking Management
 
-- 日历视图显示所有预约
-- 按日期查看预约详情
-- 显示客户信息（姓名、电话、邮箱、微信）
-- 显示服务信息和价格
-- 预约状态管理
+- Calendar view showing all bookings
+- View booking details by date
+- Display customer information (name, phone, email, WeChat)
+- Display service information and price
+- Booking status management
 
-## 设计特点
+## Design Features
 
-- **简洁现代**：大量留白，清晰的层次结构
-- **优雅字体**：使用 Playfair Display 作为标题字体
-- **柔和配色**：渐变背景（粉金色系），深色文字，金色作为强调色
-- **统一风格**：所有页面共享相同的导航栏和设计语言
-- **响应式设计**：完美适配桌面和移动设备
-- **双语支持**：所有用户界面文本都提供中英文翻译
+- **Clean & Modern**: Generous whitespace, clear hierarchy
+- **Elegant Typography**: Uses Playfair Display for headings
+- **Soft Color Palette**: Gradient background (pink-gold tones), dark text, gold accents
+- **Consistent Style**: All pages share the same navigation bar and design language
+- **Responsive Design**: Perfect adaptation for desktop and mobile devices
+- **Bilingual Support**: All UI text provides Chinese/English translations
 
-## 页面路由
+## Page Routes
 
-- `/` - 首页
-- `/booking` - 服务选择页
-- `/booking/time` - 时间选择页
-- `/booking/confirm` - 客户信息确认页
-- `/booking/success` - 预约成功页
-- `/admin` - 管理后台
+- `/` 
+- `/booking` 
+- `/booking/time` 
+- `/booking/confirm` 
+- `/booking/success` 
+- `/admin` 
 
-## 开发
+## Development
 
-### 前端开发
+### Frontend Development
 
-#### 安装依赖
+#### Install Dependencies
 
 ```bash
 cd frontend
 npm install
 ```
 
-#### 启动开发服务器
+#### Start Development Server
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-#### 构建生产版本
+#### Build Production Version
 
 ```bash
 cd frontend
 npm run build
 ```
 
-#### 预览生产构建
+#### Preview Production Build
 
 ```bash
 cd frontend
 npm run preview
 ```
 
-### 后端开发
+### Backend Development
 
-后端项目待开发，将在 `backend/` 目录中实现。
+#### Install Dependencies
 
-## 主要组件说明
+```bash
+cd backend
+npm install
+```
 
-### Calendar 组件
+#### Start Development Server
 
-可复用的日历组件，支持：
+```bash
+cd backend
+npm run dev
+```
 
-- 日期选择
-- 屏蔽日期显示
-- 预约数量显示（带徽章）
-- 最小日期限制
-- 自动禁用过去日期
+#### Deploy to Vercel
 
-### 数据管理
+The backend is configured as Vercel Serverless Functions. See `backend/VERCEL_DEPLOY.md` for deployment instructions.
 
-- 服务数据统一存储在 `frontend/src/data/services.js`
-- 支持服务分类、价格、时长、描述等信息
-- 支持附加服务标记
+## Key Components
 
-### 邮件服务
+### Calendar Component
 
-- 模拟邮件发送功能（开发环境）
-- 支持完整的预约确认邮件模板
-- 包含所有预约详情和客户信息
+Reusable calendar component that supports:
 
-## 注意事项
+- Date selection
+- Blocked date display
+- Booking count display (with badge)
+- Minimum date restriction
+- Automatic disabling of past dates
 
-- 当前版本使用前端状态管理，数据不会持久化
-- 邮件发送功能在开发环境中为模拟实现
-- 生产环境需要集成后端 API 或第三方邮件服务（如 EmailJS、SendGrid 等）
-- 项目已分离为前端（`frontend/`）和后端（`backend/`）目录结构，便于后续开发
+### Data Management
+
+- Service data stored in Redis (Vercel KV)
+- Supports service categories, prices, duration, descriptions
+- Supports add-on service markers
+
+### Email Service
+
+- Email sending via Nodemailer (Gmail SMTP)
+- Complete booking confirmation email template
+- Includes all booking details and customer information
+
+## Notes
+
+- Backend uses Vercel Serverless Functions for deployment
+- Data is persisted in Redis (Vercel KV / Upstash Redis)
+- Email sending is configured via Gmail SMTP
+- Project is separated into frontend (`frontend/`) and backend (`backend/`) directories for easier development

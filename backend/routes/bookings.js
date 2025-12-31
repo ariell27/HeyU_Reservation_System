@@ -5,37 +5,50 @@ import {
   generateBookingId,
   validateBookingData
 } from '../utils/bookingUtils.js';
+import { sendConfirmationEmail } from '../utils/emailUtils.js';
 
 const router = express.Router();
 
-// POST /api/bookings - 创建新预订
-router.post('/', (req, res) => {
+// POST /api/bookings - Create new booking
+router.post('/', async (req, res) => {
   try {
     const bookingData = req.body;
 
-    // 验证数据
+    // Validate data
     const validation = validateBookingData(bookingData);
     if (!validation.isValid) {
       return res.status(400).json({
         success: false,
-        message: '数据验证失败',
+        message: 'Data validation failed',
         errors: validation.errors
       });
     }
 
-    // 读取现有预订
-    const bookings = readBookings();
+    // Read existing bookings
+    const bookings = await readBookings();
 
-    // 创建新预订对象
-    // 确保日期格式为 ISO 字符串
-    const selectedDateISO = bookingData.selectedDate instanceof Date 
-      ? bookingData.selectedDate.toISOString()
-      : bookingData.selectedDate;
+    // Create new booking object
+    // Ensure date format is local date string (YYYY-MM-DD) to avoid timezone issues
+    let selectedDateStr = bookingData.selectedDate;
+    
+    // If Date object, convert to local date string
+    if (selectedDateStr instanceof Date) {
+      const year = selectedDateStr.getFullYear();
+      const month = String(selectedDateStr.getMonth() + 1).padStart(2, '0');
+      const day = String(selectedDateStr.getDate()).padStart(2, '0');
+      selectedDateStr = `${year}-${month}-${day}`;
+    }
+    // If ISO string, extract date part
+    else if (typeof selectedDateStr === 'string' && selectedDateStr.includes('T')) {
+      selectedDateStr = selectedDateStr.split('T')[0];
+    }
+    // If already YYYY-MM-DD format, use directly
+    // Otherwise keep as is (let validation function handle it)
 
     const newBooking = {
       bookingId: generateBookingId(),
       service: bookingData.service,
-      selectedDate: selectedDateISO,
+      selectedDate: selectedDateStr, // Store as local date string
       selectedTime: bookingData.selectedTime,
       name: bookingData.name.trim(),
       wechatName: bookingData.wechatName.trim(),
@@ -46,48 +59,66 @@ router.post('/', (req, res) => {
       createdAt: new Date().toISOString()
     };
 
-    // 添加到预订列表
+    // Add to bookings list
     bookings.push(newBooking);
 
-    // 保存到文件
-    saveBookings(bookings);
+    // Save to Redis
+    await saveBookings(bookings);
 
-    // 返回成功响应
+    // Send confirmation email (don't wait for it, send in background)
+    sendConfirmationEmail({
+      ...newBooking,
+      bookingId: newBooking.bookingId
+    }).then(result => {
+      if (result.success) {
+        console.log('✅ Confirmation email sent successfully for booking:', newBooking.bookingId);
+      } else {
+        console.error('❌ Failed to send confirmation email for booking:', newBooking.bookingId, result.error || result.message);
+      }
+    }).catch(error => {
+      console.error('❌ Error sending confirmation email for booking:', newBooking.bookingId, error);
+      // Don't fail the booking creation if email fails
+    });
+
+    // Return success response
     res.status(201).json({
       success: true,
-      message: '预订创建成功',
+      message: 'Booking created successfully',
       booking: newBooking
     });
   } catch (error) {
-    console.error('创建预订失败:', error);
+    console.error('Failed to create booking:', error);
     res.status(500).json({
       success: false,
-      message: '服务器错误，无法创建预订',
+      message: 'Server error, unable to create booking',
       error: error.message
     });
   }
 });
 
-// GET /api/bookings - 获取所有预订
-router.get('/', (req, res) => {
+// GET /api/bookings - Get all bookings
+router.get('/', async (req, res) => {
   try {
     const { status, date } = req.query;
-    let bookings = readBookings();
+    let bookings = await readBookings();
 
-    // 按状态筛选
+    // Filter by status
     if (status) {
       bookings = bookings.filter(booking => booking.status === status);
     }
 
-    // 按日期筛选
+    // Filter by date
     if (date) {
       bookings = bookings.filter(booking => {
-        const bookingDate = new Date(booking.selectedDate).toISOString().split('T')[0];
-        return bookingDate === date;
+        // If storedDate is ISO string, extract date part; if YYYY-MM-DD, use directly
+        const bookingDateStr = booking.selectedDate.includes('T')
+          ? booking.selectedDate.split('T')[0]
+          : booking.selectedDate;
+        return bookingDateStr === date;
       });
     }
 
-    // 按创建时间倒序排列（最新的在前）
+    // Sort by creation time descending (newest first)
     bookings.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     res.json({
@@ -96,26 +127,26 @@ router.get('/', (req, res) => {
       bookings: bookings
     });
   } catch (error) {
-    console.error('获取预订列表失败:', error);
+    console.error('Failed to get bookings list:', error);
     res.status(500).json({
       success: false,
-      message: '服务器错误，无法获取预订列表',
+      message: 'Server error, unable to get bookings list',
       error: error.message
     });
   }
 });
 
-// GET /api/bookings/:bookingId - 根据ID获取单个预订
-router.get('/:bookingId', (req, res) => {
+// GET /api/bookings/:bookingId - Get single booking by ID
+router.get('/:bookingId', async (req, res) => {
   try {
     const { bookingId } = req.params;
-    const bookings = readBookings();
+    const bookings = await readBookings();
     const booking = bookings.find(b => b.bookingId === bookingId);
 
     if (!booking) {
       return res.status(404).json({
         success: false,
-        message: '未找到指定的预订'
+        message: 'Booking not found'
       });
     }
 
@@ -124,14 +155,13 @@ router.get('/:bookingId', (req, res) => {
       booking: booking
     });
   } catch (error) {
-    console.error('获取预订详情失败:', error);
+    console.error('Failed to get booking details:', error);
     res.status(500).json({
       success: false,
-      message: '服务器错误，无法获取预订详情',
+      message: 'Server error, unable to get booking details',
       error: error.message
     });
   }
 });
 
 export default router;
-
