@@ -194,7 +194,7 @@ npm run dev
 
 #### Deploy to Vercel
 
-The backend is configured as Vercel Serverless Functions. See `backend/VERCEL_DEPLOY.md` for deployment instructions.
+The backend is configured as Vercel Serverless Functions. See [VERCEL_DEPLOY.md](backend/VERCEL_DEPLOY.md) for deployment instructions.
 
 ## Key Components
 
